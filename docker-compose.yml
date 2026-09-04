@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      PRODUCTION_PASSWORD: ${PRODUCTION_PASSWORD}
+    volumes:
+      # Uploaded order photos (src/app/api/upload/route.ts writes here) —
+      # named volume so they survive `docker compose down`/rebuilds.
+      - storage_data:/app/storage
+    ports:
+      - "3000:3000"
+    # No `nginx`/TLS here on purpose — the self-hosting docs recommend a
+    # reverse proxy in front of Next.js in production (rate limiting,
+    # malformed-request handling, TLS termination). Put this behind
+    # nginx/Caddy/Traefik (or your existing reverse proxy) rather than
+    # exposing port 3000 straight to the internet. See DEPLOY.md.
+
+volumes:
+  pgdata:
+  storage_data:

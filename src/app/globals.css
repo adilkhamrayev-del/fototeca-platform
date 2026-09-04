@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --bg: oklch(99% 0.002 240);
+  --surface: oklch(100% 0 0);
+  --surface-2: oklch(97% 0.004 240);
+  --text: oklch(24% 0.006 240);
+  --text-muted: oklch(52% 0.006 240);
+  --border: oklch(92% 0.004 240);
+  --accent: oklch(64% 0.09 220);
+  --accent-ink: oklch(38% 0.07 220);
+  --accent-soft: oklch(94% 0.02 220);
+  --sand: oklch(80% 0.03 70);
+  --ok: oklch(64% 0.12 155);
+  --ok-soft: oklch(94% 0.03 155);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-sand: var(--sand);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --font-heading: var(--font-outfit);
+  --font-body: var(--font-dm-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+/* Production print blanks (/admin/orders/[id]/print) — force plain
+   black-on-white paper output regardless of the app's own theme/dark mode,
+   and drop the browser's default page margin so the A4 layout controls its
+   own spacing. */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+  @page {
+    margin: 12mm;
+  }
+}
