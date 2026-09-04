@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp, { type Metadata } from "sharp";
 import { getCatalogItemBySlug } from "@/lib/repo/catalog";
+import { STORAGE_ROOT, sanitizeSegment } from "@/lib/order-storage";
 
 // Server-side half of the two-tier file validation from the migration plan
 // (claude/plan-novoy-platformy.md, §2 "Валидация файлов"): the client does a
@@ -9,18 +10,11 @@ import { getCatalogItemBySlug } from "@/lib/repo/catalog";
 // as "valid" until this route re-checks it — a client can lie, a server
 // response cannot be forged from the browser.
 //
-// Accepted files are written to storage/orders/{draftId}/{index}.jpg on the
-// local filesystem, mirroring the `/storage/orders/{order_id}/{item_id}/...`
-// layout the plan specifies for the production server.
-
-// On Vercel (and other read-only-filesystem serverless targets) only /tmp is
-// writable, and it's ephemeral between invocations — fine for a test/staging
-// deploy, but not a real storage answer. The production target (the actual
-// Windows server) has no VERCEL env var, so it keeps writing next to the app
-// as before.
-const STORAGE_ROOT = process.env.VERCEL
-  ? path.join("/tmp", "fototeca-storage", "orders")
-  : path.join(process.cwd(), "storage", "orders");
+// While the order is still a draft (no order number yet), accepted files
+// are written to storage/orders/{draftId}/{index}.jpg. Once the order is
+// actually placed, createOrder() (src/lib/repo/orders.ts) calls
+// finalizeOrderFiles() (src/lib/order-storage.ts) to move them into the
+// legacy-mirroring dated/order-number/product-name/Razvoroty layout.
 const DIMENSION_TOLERANCE_PX = 4; // re-encoding/export can round by a pixel or two
 
 export async function POST(request: Request) {
@@ -114,8 +108,4 @@ export async function POST(request: Request) {
     density: density ?? null,
     savedAs: filename,
   });
-}
-
-function sanitizeSegment(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) || "x";
 }

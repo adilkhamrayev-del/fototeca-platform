@@ -1,5 +1,7 @@
 import { pool } from "@/lib/db";
 import type { OrderStatus, ProductionStage, ProductionCard } from "@/lib/orders-shared";
+import { getCatalogItemById } from "@/lib/repo/catalog";
+import { finalizeOrderFiles } from "@/lib/order-storage";
 
 // Re-exported so existing callers (`@/lib/repo/orders`) keep working — the
 // canonical definitions live in orders-shared.ts, which client components
@@ -102,6 +104,19 @@ export async function createOrder(
     );
 
     await client.query("commit");
+
+    // Best-effort: move the customer's uploaded files from the temporary
+    // draft folder into the legacy-mirroring dated/order-number/product
+    // layout. Never blocks or fails order creation — see
+    // finalizeOrderFiles' own comment for why.
+    const item = await getCatalogItemById(input.catalogItemId);
+    void finalizeOrderFiles({
+      orderNumber,
+      itemTitle: item?.title ?? "Заказ",
+      draftId: input.uploadDraftId,
+      comboPhotoUrl: input.coverComboPhotoUrl ?? null,
+    });
+
     return { orderId, orderNumber };
   } catch (err) {
     await client.query("rollback");
