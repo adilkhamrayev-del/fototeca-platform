@@ -34,6 +34,11 @@ export type NewOrderInput = {
   express: boolean;
   price: number;
   uploadDraftId: string;
+  // Set when the customer chose "прислать ссылку" instead of uploading
+  // spread files directly — a link (Google Drive/Yandex Disk/etc.) for the
+  // admin to open and download the files from. `price` already includes
+  // the FILE_LINK_SURCHARGE for this — see OrderConfigurator.tsx.
+  fileLinkUrl?: string | null;
 };
 
 async function generateOrderNumber(client: { query: typeof pool.query }): Promise<string> {
@@ -85,8 +90,8 @@ export async function createOrder(
       `insert into order_items
          (order_id, catalog_item_id, catalog_format_id, cover_option_id, spreads,
           endpapers, packaging, express, price, upload_draft_id,
-          cover_variant_id, cover_combo_photo_url)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          cover_variant_id, cover_combo_photo_url, file_link_url)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         orderId,
         input.catalogItemId,
@@ -100,6 +105,7 @@ export async function createOrder(
         input.uploadDraftId,
         input.coverVariantId ?? null,
         input.coverComboPhotoUrl ?? null,
+        input.fileLinkUrl ?? null,
       ],
     );
 
@@ -115,6 +121,7 @@ export async function createOrder(
       itemTitle: item?.title ?? "Заказ",
       draftId: input.uploadDraftId,
       comboPhotoUrl: input.coverComboPhotoUrl ?? null,
+      fileLinkUrl: input.fileLinkUrl ?? null,
     });
 
     return { orderId, orderNumber };
@@ -173,6 +180,7 @@ export type OrderDetail = OrderListRow & {
     coverName: string;
     coverVariantLabel: string | null;
     coverComboPhotoUrl: string | null;
+    fileLinkUrl: string | null;
     spreads: number;
     endpapers: boolean;
     packaging: boolean;
@@ -216,7 +224,7 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
   const { rows: itemRows } = await pool.query(
     `select oi.id, ci.title as item_title, cf.name as format_name, co.name as cover_name,
             oi.spreads, oi.endpapers, oi.packaging, oi.express, oi.price, oi.production_stage,
-            oi.cover_combo_photo_url,
+            oi.cover_combo_photo_url, oi.file_link_url,
             cmv.name as variant_name, cmv.material as variant_material,
             co.variant_kind = 'kombi' as is_kombi
      from order_items oi
@@ -245,6 +253,7 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
       coverName: r.cover_name,
       coverVariantLabel: coverVariantLabel(r),
       coverComboPhotoUrl: r.cover_combo_photo_url,
+      fileLinkUrl: r.file_link_url,
       spreads: r.spreads,
       endpapers: r.endpapers,
       packaging: r.packaging,

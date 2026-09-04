@@ -19,6 +19,13 @@ type UploadEntry = {
 
 const PACKAGING_PRICE = 1500;
 const EXPRESS_SURCHARGE_PER_SPREAD = 150;
+// Extra charge for skipping the direct JPG uploader and instead sending a
+// link (Google Drive/Яндекс.Диск/WeTransfer/etc.) to the files — someone on
+// our side has to open the link and download everything by hand, hence the
+// surcharge. See "Опции" column of the admin order page for where staff see
+// the link, and finalizeOrderFiles (src/lib/order-storage.ts) for how it's
+// noted on disk next to the rest of the order's files.
+const FILE_LINK_SURCHARGE = 1000;
 
 function formatPrice(value: number) {
   return new Intl.NumberFormat("ru-RU").format(value);
@@ -126,6 +133,8 @@ export default function OrderConfigurator({
   const [clientPhone, setClientPhone] = useState("");
 
   const [files, setFiles] = useState<UploadEntry[]>([]);
+  const [uploadMode, setUploadMode] = useState<"files" | "link">("files");
+  const [fileLinkUrl, setFileLinkUrl] = useState("");
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -216,15 +225,21 @@ export default function OrderConfigurator({
   const checkingCount = files.filter((f) => f.status === "checking").length;
   const progress = Math.min(100, Math.round((validCount / spreads) * 100));
 
+  const linkTrimmed = fileLinkUrl.trim();
+  const linkValid = uploadMode === "link" && /^https?:\/\/.+/i.test(linkTrimmed);
+
   const total =
     spreads * format.pricePerSpread +
     coverOption.priceModifier +
     (packaging ? PACKAGING_PRICE : 0) +
-    (express ? spreads * EXPRESS_SURCHARGE_PER_SPREAD : 0);
+    (express ? spreads * EXPRESS_SURCHARGE_PER_SPREAD : 0) +
+    (uploadMode === "link" ? FILE_LINK_SURCHARGE : 0);
+
+  const filesSatisfied =
+    uploadMode === "files" ? validCount >= spreads && checkingCount === 0 : linkValid;
 
   const canSubmit =
-    validCount >= spreads &&
-    checkingCount === 0 &&
+    filesSatisfied &&
     clientName.trim().length > 0 &&
     clientPhone.replace(/\D/g, "").length >= 10 &&
     variantSatisfied &&
@@ -247,6 +262,7 @@ export default function OrderConfigurator({
       express,
       price: total,
       uploadDraftId: draftId,
+      fileLinkUrl: uploadMode === "link" ? linkTrimmed : null,
     });
     setSubmitting(false);
     if ("error" in result) {
@@ -274,8 +290,8 @@ export default function OrderConfigurator({
         <p className="max-w-md text-sm text-text-muted">
           {item.title}, {format.name}, обложка «{coverOption.name}»
           {coverVariantLabel() ? ` (${coverVariantLabel()})` : ""}, {spreads} разворотов —
-          заказ сохранён, файлы приняты. Мы свяжемся с вами по телефону {clientPhone} для
-          подтверждения и оплаты.
+          заказ сохранён, {uploadMode === "link" ? "ссылка на файлы принята" : "файлы приняты"}.
+          Мы свяжемся с вами по телефону {clientPhone} для подтверждения и оплаты.
         </p>
       </main>
     );
@@ -464,6 +480,54 @@ export default function OrderConfigurator({
 
         {/* Upload column */}
         <div className="flex flex-col gap-5">
+          <div className="flex gap-2 rounded-2xl border border-border bg-surface-2 p-1.5">
+            <button
+              type="button"
+              onClick={() => setUploadMode("files")}
+              className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold ${
+                uploadMode === "files" ? "bg-white shadow-sm" : "text-text-muted"
+              }`}
+            >
+              Загрузить файлы
+            </button>
+            <button
+              type="button"
+              onClick={() => setUploadMode("link")}
+              className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold ${
+                uploadMode === "link" ? "bg-white shadow-sm" : "text-text-muted"
+              }`}
+            >
+              Прислать ссылку (+{formatPrice(FILE_LINK_SURCHARGE)} ₸)
+            </button>
+          </div>
+
+          {uploadMode === "link" ? (
+            <div className="flex flex-col gap-3 rounded-3xl border border-border bg-surface p-6">
+              <h3 className="font-heading text-base font-bold">Ссылка на файлы</h3>
+              <p className="text-[13px] text-text-muted">
+                Загрузите развороты в Google Диск, Яндекс.Диск, WeTransfer или любое другое
+                облако, откройте доступ по ссылке и вставьте её сюда. Мы скачаем файлы сами —
+                это стоит дополнительных {formatPrice(FILE_LINK_SURCHARGE)} ₸, они уже учтены в
+                итоговой сумме внизу.
+              </p>
+              <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                Ссылка
+                <input
+                  type="url"
+                  value={fileLinkUrl}
+                  onChange={(e) => setFileLinkUrl(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                />
+              </label>
+              {fileLinkUrl.trim().length > 0 && !linkValid && (
+                <p className="text-[12.5px] font-medium text-red-600">
+                  Ссылка должна начинаться с http:// или https://
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -577,6 +641,8 @@ export default function OrderConfigurator({
               </p>
             </>
           )}
+            </>
+          )}
         </div>
       </div>
 
@@ -589,6 +655,7 @@ export default function OrderConfigurator({
               {spreads} разворотов × {formatPrice(format.pricePerSpread)} ₸ + обложка «
               {coverOption.name}»
               {endpapers ? " + форзацы" : ""}
+              {uploadMode === "link" ? ` + ссылка на файлы (${formatPrice(FILE_LINK_SURCHARGE)} ₸)` : ""}
             </span>
             {submitError && (
               <p className="mt-1.5 text-[12.5px] font-medium text-red-600">{submitError}</p>

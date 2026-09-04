@@ -244,6 +244,14 @@ alter table order_items drop column if exists cover_variant_kombi_ekokozha_id;
 -- lives here rather than in cover_material_variants/cover_options.
 alter table order_items add column if not exists cover_combo_photo_url text;
 
+-- Alternative to uploading spread photos through /api/upload: the customer
+-- pastes a link (Google Drive/Yandex Disk/WeTransfer/etc.) where the admin
+-- can download the files from instead. Costs FILE_LINK_SURCHARGE (see
+-- OrderConfigurator.tsx) extra, already folded into order_items.price —
+-- this column is just the link text for the admin to open, not a separate
+-- charge record.
+alter table order_items add column if not exists file_link_url text;
+
 -- Archive of orders imported from the old XAF system (zakaz.fototeca.kz).
 -- Deliberately NOT forced into orders/order_items: the legacy journal is
 -- free-form (one text field for delivery info, product names as plain

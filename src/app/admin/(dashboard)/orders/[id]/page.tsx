@@ -123,6 +123,16 @@ export default async function AdminOrderDetailPage({
                   ]
                     .filter(Boolean)
                     .join(", ") || "—"}
+                  {item.fileLinkUrl && (
+                    <a
+                      href={item.fileLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 flex items-center gap-1 rounded-lg bg-accent-soft px-2 py-1 font-semibold text-accent-ink"
+                    >
+                      📎 Ссылка на файлы
+                    </a>
+                  )}
                 </td>
                 <td className="px-5 py-3">
                   <span className="rounded-lg bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent-ink">

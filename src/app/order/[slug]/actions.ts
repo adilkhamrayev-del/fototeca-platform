@@ -16,6 +16,7 @@ export type SubmitOrderInput = {
   express: boolean;
   price: number;
   uploadDraftId: string;
+  fileLinkUrl?: string | null;
 };
 
 export async function submitOrder(
@@ -24,6 +25,10 @@ export async function submitOrder(
   if (!input.clientName.trim()) return { error: "Укажите имя" };
   const phoneDigits = input.clientPhone.replace(/\D/g, "");
   if (phoneDigits.length < 10) return { error: "Укажите корректный номер телефона" };
+  const fileLinkUrl = input.fileLinkUrl?.trim() || null;
+  if (fileLinkUrl && !/^https?:\/\//i.test(fileLinkUrl)) {
+    return { error: "Ссылка на файлы должна начинаться с http:// или https://" };
+  }
 
   try {
     const { orderNumber } = await createOrder({
@@ -40,6 +45,7 @@ export async function submitOrder(
       express: input.express,
       price: input.price,
       uploadDraftId: input.uploadDraftId,
+      fileLinkUrl,
     });
     return { orderNumber };
   } catch (err) {

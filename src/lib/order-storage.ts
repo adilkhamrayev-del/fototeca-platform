@@ -51,11 +51,16 @@ export async function finalizeOrderFiles(input: {
   itemTitle: string;
   draftId: string;
   comboPhotoUrl?: string | null;
+  // Customer submitted a link (Google Drive/Yandex Disk/etc.) instead of
+  // uploading spreads directly — written as a plain-text note next to the
+  // rest of the order's files so production staff browsing the folder on
+  // disk see it too, not just in the admin order page.
+  fileLinkUrl?: string | null;
 }): Promise<void> {
   if (isVercel) return; // /tmp is ephemeral there — nothing durable to move
 
   try {
-    const { readdir, mkdir, rename, copyFile, rm } = await import("node:fs/promises");
+    const { readdir, mkdir, rename, copyFile, rm, writeFile } = await import("node:fs/promises");
 
     const draftDir = path.join(STORAGE_ROOT, sanitizeSegment(input.draftId));
     let entries: string[] = [];
@@ -84,6 +89,15 @@ export async function finalizeOrderFiles(input: {
         );
       }
       await rm(draftDir, { recursive: true, force: true });
+    }
+
+    if (input.fileLinkUrl) {
+      await mkdir(finalDir, { recursive: true });
+      await writeFile(
+        path.join(finalDir, "ССЫЛКА НА ФАЙЛЫ.txt"),
+        `Заказ ${input.orderNumber}\nКлиент прислал файлы по ссылке (без прямой загрузки):\n${input.fileLinkUrl}\n`,
+        "utf-8",
+      );
     }
 
     // "Комби" cover: the customer's own photo, uploaded separately via
