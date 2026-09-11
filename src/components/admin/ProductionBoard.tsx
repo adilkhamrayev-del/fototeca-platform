@@ -64,6 +64,37 @@ export default function ProductionBoard({ items }: { items: ProductionCard[] }) 
                       {item.spreads} разв.
                     </p>
                     <p className="text-xs text-text-muted">{item.clientName}</p>
+                    {item.spreadPhotoUrls.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {item.spreadPhotoUrls.map((url, i) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block h-8 w-8 overflow-hidden rounded-md border border-border transition hover:border-accent"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`Разворот ${i + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    ) : item.fileLinkUrl ? (
+                      <a
+                        href={item.fileLinkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex w-fit items-center gap-1 rounded-lg bg-accent-soft px-2 py-1 text-[11px] font-semibold text-accent-ink"
+                      >
+                        📎 Ссылка на файлы
+                      </a>
+                    ) : (
+                      <p className="text-[11px] font-medium text-red-600">Файлы не найдены</p>
+                    )}
                     {next && (
                       <button
                         type="button"

@@ -15,6 +15,15 @@ type UploadEntry = {
   reason?: string;
   width?: number;
   height?: number;
+  // Position in the spread sequence (0-based) — used to submit
+  // spreadPhotoUrls in the right order regardless of upload/removal order.
+  index: number;
+  // Durable, web-servable URL returned by /api/upload once validated —
+  // saved on the order so admin and the customer's own /account page can
+  // show/download the actual spread photo later (see spread-swatches
+  // comment in media-storage.ts for why this exists separately from the
+  // legacy on-disk draft copy).
+  url?: string;
 };
 
 const PACKAGING_PRICE = 1500;
@@ -167,7 +176,7 @@ export default function OrderConfigurator({
       const previewUrl = URL.createObjectURL(file);
       const index = nextIndex.current++;
 
-      setFiles((prev) => [...prev, { id, name: file.name, previewUrl, status: "checking" }]);
+      setFiles((prev) => [...prev, { id, name: file.name, previewUrl, status: "checking", index }]);
 
       if (file.type !== "image/jpeg") {
         updateEntry(id, { status: "bad", reason: "Нужен JPG-файл" });
@@ -204,6 +213,7 @@ export default function OrderConfigurator({
             reason: undefined,
             width: result.width,
             height: result.height,
+            url: result.url,
           });
         } else {
           updateEntry(id, { status: "bad", reason: result.reason ?? "Файл не подошёл" });
@@ -248,6 +258,13 @@ export default function OrderConfigurator({
   async function handleSubmit() {
     setSubmitting(true);
     setSubmitError(null);
+    const spreadPhotoUrls =
+      uploadMode === "files"
+        ? files
+            .filter((f) => f.status === "ok" && f.url)
+            .sort((a, b) => a.index - b.index)
+            .map((f) => f.url as string)
+        : [];
     const result = await submitOrder({
       clientName,
       clientPhone,
@@ -263,6 +280,7 @@ export default function OrderConfigurator({
       price: total,
       uploadDraftId: draftId,
       fileLinkUrl: uploadMode === "link" ? linkTrimmed : null,
+      spreadPhotoUrls,
     });
     setSubmitting(false);
     if ("error" in result) {

@@ -64,6 +64,18 @@ export const MAX_COVER_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
 export const COMBO_PHOTO_SUBDIR = "combo-uploads";
 export const MAX_COMBO_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
 
+// Customer-uploaded spread (page) photos for the photobook itself, from
+// /api/upload. These are the actual print-quality files the customer
+// picked — separate from (and in addition to) the legacy-mirroring copy
+// that /api/upload also writes under STORAGE_ROOT for the eventual
+// self-hosted server's folder-based workflow (see order-storage.ts).
+// STORAGE_ROOT is /tmp on Vercel and never read back — without this
+// second, durable copy, uploaded spreads would simply vanish once the
+// serverless instance recycles, leaving production and the customer's own
+// order history with nothing to show. Keyed by draftId so every file from
+// one upload session lands together.
+export const SPREAD_PHOTO_SUBDIR = "spreads";
+
 // Shared upload path for any admin-managed media file (banner photo/video,
 // cover-option preview photo, and anything similar added later) — same
 // storage split as the comment on MEDIA_ROOT above: Vercel Blob when
@@ -122,4 +134,16 @@ export async function uploadComboPhoto(
   contentType: string,
 ): Promise<string> {
   return uploadAdminMedia(buffer, filename, contentType, COMBO_PHOTO_SUBDIR);
+}
+
+// Same idea again, for one customer-uploaded spread photo — public route,
+// no admin session, see /api/upload. `draftId` keeps every spread from one
+// upload session grouped under its own folder/URL prefix.
+export async function uploadSpreadPhoto(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+  draftId: string,
+): Promise<string> {
+  return uploadAdminMedia(buffer, filename, contentType, `${SPREAD_PHOTO_SUBDIR}/${draftId}`);
 }

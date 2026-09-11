@@ -90,6 +90,7 @@ export default async function AdminOrderDetailPage({
               <th className="px-5 py-3">Формат</th>
               <th className="px-5 py-3">Обложка</th>
               <th className="px-5 py-3">Разворотов</th>
+              <th className="px-5 py-3">Файлы</th>
               <th className="px-5 py-3">Опции</th>
               <th className="px-5 py-3">Этап производства</th>
               <th className="px-5 py-3">Цена</th>
@@ -115,6 +116,39 @@ export default async function AdminOrderDetailPage({
                   )}
                 </td>
                 <td className="px-5 py-3">{item.spreads}</td>
+                <td className="px-5 py-3">
+                  {item.spreadPhotoUrls.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {item.spreadPhotoUrls.map((url, i) => (
+                        <a
+                          key={url}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block h-9 w-9 overflow-hidden rounded-md border border-border transition hover:border-accent"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Разворот ${i + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  ) : item.fileLinkUrl ? (
+                    <a
+                      href={item.fileLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 whitespace-nowrap rounded-lg bg-accent-soft px-2 py-1 text-xs font-semibold text-accent-ink"
+                    >
+                      📎 Ссылка
+                    </a>
+                  ) : (
+                    <span className="text-xs text-text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-5 py-3 text-xs text-text-muted">
                   {[
                     item.endpapers && "форзацы",
@@ -123,16 +157,6 @@ export default async function AdminOrderDetailPage({
                   ]
                     .filter(Boolean)
                     .join(", ") || "—"}
-                  {item.fileLinkUrl && (
-                    <a
-                      href={item.fileLinkUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1.5 flex items-center gap-1 rounded-lg bg-accent-soft px-2 py-1 font-semibold text-accent-ink"
-                    >
-                      📎 Ссылка на файлы
-                    </a>
-                  )}
                 </td>
                 <td className="px-5 py-3">
                   <span className="rounded-lg bg-accent-soft px-2.5 py-1 text-[11px] font-semibold text-accent-ink">

@@ -17,6 +17,9 @@ export type SubmitOrderInput = {
   price: number;
   uploadDraftId: string;
   fileLinkUrl?: string | null;
+  // Durable URLs for the customer's uploaded spread photos, in page order
+  // — see NewOrderInput's own comment in src/lib/repo/orders.ts.
+  spreadPhotoUrls?: string[];
 };
 
 export async function submitOrder(
@@ -46,6 +49,7 @@ export async function submitOrder(
       price: input.price,
       uploadDraftId: input.uploadDraftId,
       fileLinkUrl,
+      spreadPhotoUrls: input.spreadPhotoUrls ?? [],
     });
     return { orderNumber };
   } catch (err) {

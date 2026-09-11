@@ -252,6 +252,15 @@ alter table order_items add column if not exists cover_combo_photo_url text;
 -- charge record.
 alter table order_items add column if not exists file_link_url text;
 
+-- Durable, web-servable URLs for each spread photo the customer uploaded
+-- through /api/upload, in page order — see uploadSpreadPhoto in
+-- media-storage.ts. Empty when the customer used file_link_url instead.
+-- These are what let admin (and the customer's own /account order
+-- history, see src/app/account) actually see/download the files: the
+-- on-disk copy finalizeOrderFiles moves around (order-storage.ts) lives
+-- under STORAGE_ROOT, which is /tmp on Vercel and never durable there.
+alter table order_items add column if not exists spread_photo_urls jsonb not null default '[]'::jsonb;
+
 -- Archive of orders imported from the old XAF system (zakaz.fototeca.kz).
 -- Deliberately NOT forced into orders/order_items: the legacy journal is
 -- free-form (one text field for delivery info, product names as plain

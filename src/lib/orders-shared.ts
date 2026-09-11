@@ -52,6 +52,12 @@ export type ProductionCard = {
   // The customer's own uploaded photo for the other half of a Комби cover
   // — null for every other cover type.
   coverComboPhotoUrl: string | null;
+  // Same two file-source fields as OrderDetail's items — production staff
+  // only ever see orders through this board or the print blank (see
+  // isPathAllowedForRole), so this is their only digital access to the
+  // customer's actual files.
+  fileLinkUrl: string | null;
+  spreadPhotoUrls: string[];
   spreads: number;
   clientName: string;
   productionStage: ProductionStage;

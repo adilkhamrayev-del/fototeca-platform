@@ -3,6 +3,7 @@ import path from "node:path";
 import sharp, { type Metadata } from "sharp";
 import { getCatalogItemBySlug } from "@/lib/repo/catalog";
 import { STORAGE_ROOT, sanitizeSegment } from "@/lib/order-storage";
+import { uploadSpreadPhoto } from "@/lib/media-storage";
 
 // Server-side half of the two-tier file validation from the migration plan
 // (claude/plan-novoy-platformy.md, §2 "Валидация файлов"): the client does a
@@ -101,11 +102,17 @@ export async function POST(request: Request) {
   const filename = `${sanitizeSegment(index).padStart(2, "0")}.jpg`;
   await writeFile(path.join(draftDir, filename), buffer);
 
+  // Durable, web-servable copy (Vercel Blob in production, MEDIA_ROOT on
+  // the self-hosted server) — see the comment on SPREAD_PHOTO_SUBDIR in
+  // media-storage.ts for why this is separate from the write above.
+  const url = await uploadSpreadPhoto(buffer, filename, "image/jpeg", sanitizeSegment(draftId));
+
   return Response.json({
     valid: true,
     width,
     height,
     density: density ?? null,
     savedAs: filename,
+    url,
   });
 }

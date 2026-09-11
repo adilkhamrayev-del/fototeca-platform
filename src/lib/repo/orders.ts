@@ -39,6 +39,13 @@ export type NewOrderInput = {
   // admin to open and download the files from. `price` already includes
   // the FILE_LINK_SURCHARGE for this — see OrderConfigurator.tsx.
   fileLinkUrl?: string | null;
+  // Durable URLs (Vercel Blob / MEDIA_ROOT — see uploadSpreadPhoto in
+  // media-storage.ts) for each uploaded spread photo, in page order. Empty
+  // when the customer used the "ссылка на файлы" option instead. This is
+  // what lets admin (and the customer's own /account order history)
+  // actually see/download the files — the STORAGE_ROOT copy finalizeOrderFiles
+  // moves around is /tmp-only on Vercel and was never retrievable there.
+  spreadPhotoUrls?: string[];
 };
 
 async function generateOrderNumber(client: { query: typeof pool.query }): Promise<string> {
@@ -90,8 +97,8 @@ export async function createOrder(
       `insert into order_items
          (order_id, catalog_item_id, catalog_format_id, cover_option_id, spreads,
           endpapers, packaging, express, price, upload_draft_id,
-          cover_variant_id, cover_combo_photo_url, file_link_url)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          cover_variant_id, cover_combo_photo_url, file_link_url, spread_photo_urls)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [
         orderId,
         input.catalogItemId,
@@ -106,6 +113,7 @@ export async function createOrder(
         input.coverVariantId ?? null,
         input.coverComboPhotoUrl ?? null,
         input.fileLinkUrl ?? null,
+        JSON.stringify(input.spreadPhotoUrls ?? []),
       ],
     );
 
@@ -181,6 +189,7 @@ export type OrderDetail = OrderListRow & {
     coverVariantLabel: string | null;
     coverComboPhotoUrl: string | null;
     fileLinkUrl: string | null;
+    spreadPhotoUrls: string[];
     spreads: number;
     endpapers: boolean;
     packaging: boolean;
@@ -224,7 +233,7 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
   const { rows: itemRows } = await pool.query(
     `select oi.id, ci.title as item_title, cf.name as format_name, co.name as cover_name,
             oi.spreads, oi.endpapers, oi.packaging, oi.express, oi.price, oi.production_stage,
-            oi.cover_combo_photo_url, oi.file_link_url,
+            oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
             cmv.name as variant_name, cmv.material as variant_material,
             co.variant_kind = 'kombi' as is_kombi
      from order_items oi
@@ -254,6 +263,7 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
       coverVariantLabel: coverVariantLabel(r),
       coverComboPhotoUrl: r.cover_combo_photo_url,
       fileLinkUrl: r.file_link_url,
+      spreadPhotoUrls: r.spread_photo_urls ?? [],
       spreads: r.spreads,
       endpapers: r.endpapers,
       packaging: r.packaging,
@@ -262,6 +272,28 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
       productionStage: r.production_stage,
     })),
   };
+}
+
+// Full order history for a client's personal cabinet (see
+// src/app/account) — every order ever placed under this phone number,
+// newest first, with the same item-level detail (including file
+// previews) as the admin order page.
+export async function getOrdersForClientPhone(phone: string): Promise<OrderDetail[]> {
+  const { rows } = await pool.query<{ id: string }>(
+    `select o.id
+     from orders o
+     join clients c on c.id = o.client_id
+     where c.phone = $1
+     order by o.created_at desc`,
+    [phone],
+  );
+
+  const orders: OrderDetail[] = [];
+  for (const row of rows) {
+    const detail = await getOrderById(row.id);
+    if (detail) orders.push(detail);
+  }
+  return orders;
 }
 
 export async function updateOrderStatus(id: string, status: OrderStatus): Promise<void> {
@@ -276,7 +308,7 @@ export async function listProductionItems(): Promise<ProductionCard[]> {
     `select oi.id as item_id, o.number as order_number, o.id as order_id,
             ci.title as item_title, cf.name as format_name, co.name as cover_name,
             oi.spreads, c.full_name as client_name, oi.production_stage,
-            oi.cover_combo_photo_url,
+            oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
             cmv.name as variant_name, cmv.material as variant_material,
             co.variant_kind = 'kombi' as is_kombi
      from order_items oi
@@ -298,6 +330,8 @@ export async function listProductionItems(): Promise<ProductionCard[]> {
     coverName: r.cover_name,
     coverVariantLabel: coverVariantLabel(r),
     coverComboPhotoUrl: r.cover_combo_photo_url,
+    fileLinkUrl: r.file_link_url,
+    spreadPhotoUrls: r.spread_photo_urls ?? [],
     spreads: r.spreads,
     clientName: r.client_name,
     productionStage: r.production_stage,
