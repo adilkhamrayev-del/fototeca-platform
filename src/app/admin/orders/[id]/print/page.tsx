@@ -100,6 +100,13 @@ export default async function OrderPrintPage({
                   />
                 </div>
               )}
+              {item.fileLinkUrl && (
+                <p className="mt-2 rounded-lg border-2 border-black px-2 py-1.5 text-sm font-semibold">
+                  📎 Файлы по ссылке (не загружены!):
+                  <br />
+                  <span className="font-normal">{item.fileLinkUrl}</span>
+                </p>
+              )}
             </div>
           </div>
 
