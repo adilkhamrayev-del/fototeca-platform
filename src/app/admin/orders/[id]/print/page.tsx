@@ -120,7 +120,8 @@ export default async function OrderPrintPage({
               <p className="font-semibold">
                 {[
                   item.endpapers && "форзацы",
-                  item.packaging && "упаковка",
+                  item.packaging &&
+                    (item.boxMaterialLabel ? `упаковка (${item.boxMaterialLabel})` : "упаковка"),
                   item.express && "срочно",
                 ]
                   .filter(Boolean)

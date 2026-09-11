@@ -64,6 +64,11 @@ export default function ProductionBoard({ items }: { items: ProductionCard[] }) 
                       {item.spreads} разв.
                     </p>
                     <p className="text-xs text-text-muted">{item.clientName}</p>
+                    {item.packaging && (
+                      <p className="text-[11px] font-semibold text-accent-ink">
+                        🎁 Упаковка{item.boxMaterialLabel ? ` — ${item.boxMaterialLabel}` : ""}
+                      </p>
+                    )}
                     {item.spreadPhotoUrls.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {item.spreadPhotoUrls.map((url, i) => (

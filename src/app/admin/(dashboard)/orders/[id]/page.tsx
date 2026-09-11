@@ -152,7 +152,8 @@ export default async function AdminOrderDetailPage({
                 <td className="px-5 py-3 text-xs text-text-muted">
                   {[
                     item.endpapers && "форзацы",
-                    item.packaging && "упаковка",
+                    item.packaging &&
+                      (item.boxMaterialLabel ? `упаковка (${item.boxMaterialLabel})` : "упаковка"),
                     item.express && "экспресс",
                   ]
                     .filter(Boolean)

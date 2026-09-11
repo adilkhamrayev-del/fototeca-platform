@@ -58,6 +58,13 @@ export const MAX_BANNER_VIDEO_BYTES = 40 * 1024 * 1024; // 40 MB — short clips
 export const COVER_MEDIA_SUBDIR = "covers";
 export const MAX_COVER_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
 
+// Admin-managed swatch photos for box-lining materials (бархат/велюр) — see
+// box_material_variants in db/schema.sql. Separate subfolder from
+// COVER_MEDIA_SUBDIR: these are an unrelated material (inside of the gift
+// box, not the book's cover), just uploaded the same way.
+export const BOX_MEDIA_SUBDIR = "box-materials";
+export const MAX_BOX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
+
 // Customer-uploaded photo for the "Комби" cover — the customer supplies
 // their own image for part of the cover at order time (see
 // /api/order/combo-cover-photo), unlike the admin-managed swatches above.
@@ -128,6 +135,15 @@ export async function uploadCoverImage(
 
 // Same idea again, for a customer's own combo-cover photo — public route,
 // no admin session, see /api/order/combo-cover-photo.
+// Same idea again, for a box-lining swatch photo — see BOX_MEDIA_SUBDIR.
+export async function uploadBoxMaterialImage(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+): Promise<string> {
+  return uploadAdminMedia(buffer, filename, contentType, BOX_MEDIA_SUBDIR);
+}
+
 export async function uploadComboPhoto(
   buffer: Buffer,
   filename: string,

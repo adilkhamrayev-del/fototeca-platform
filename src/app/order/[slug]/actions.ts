@@ -13,6 +13,9 @@ export type SubmitOrderInput = {
   spreads: number;
   endpapers: boolean;
   packaging: boolean;
+  // Box-lining swatch (бархат/велюр) the customer picked — only meaningful
+  // when packaging is true, see box_material_variants in db/schema.sql.
+  boxMaterialId?: string | null;
   express: boolean;
   price: number;
   uploadDraftId: string;
@@ -45,6 +48,7 @@ export async function submitOrder(
       spreads: input.spreads,
       endpapers: input.endpapers,
       packaging: input.packaging,
+      boxMaterialId: input.boxMaterialId ?? null,
       express: input.express,
       price: input.price,
       uploadDraftId: input.uploadDraftId,

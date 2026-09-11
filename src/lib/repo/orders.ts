@@ -31,6 +31,10 @@ export type NewOrderInput = {
   spreads: number;
   endpapers: boolean;
   packaging: boolean;
+  // Box-lining swatch (бархат/велюр) the customer picked when packaging is
+  // true — see box_material_variants in db/schema.sql. Unrelated to
+  // coverVariantId, which is the book's own cover material.
+  boxMaterialId?: string | null;
   express: boolean;
   price: number;
   uploadDraftId: string;
@@ -97,8 +101,9 @@ export async function createOrder(
       `insert into order_items
          (order_id, catalog_item_id, catalog_format_id, cover_option_id, spreads,
           endpapers, packaging, express, price, upload_draft_id,
-          cover_variant_id, cover_combo_photo_url, file_link_url, spread_photo_urls)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          cover_variant_id, cover_combo_photo_url, file_link_url, spread_photo_urls,
+          box_material_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         orderId,
         input.catalogItemId,
@@ -114,6 +119,7 @@ export async function createOrder(
         input.coverComboPhotoUrl ?? null,
         input.fileLinkUrl ?? null,
         JSON.stringify(input.spreadPhotoUrls ?? []),
+        input.boxMaterialId ?? null,
       ],
     );
 
@@ -193,6 +199,10 @@ export type OrderDetail = OrderListRow & {
     spreads: number;
     endpapers: boolean;
     packaging: boolean;
+    // Box-lining swatch label (e.g. "бархат: Бордовый") — only set when
+    // packaging is true and a swatch was picked; unrelated to
+    // coverVariantLabel, which is the book's own cover material.
+    boxMaterialLabel: string | null;
     express: boolean;
     price: number;
     productionStage: ProductionStage;
@@ -200,6 +210,19 @@ export type OrderDetail = OrderListRow & {
 };
 
 const MATERIAL_LABELS_RU: Record<string, string> = { tkanevaya: "ткань", ekokozha: "экокожа" };
+const BOX_MATERIAL_LABELS_RU: Record<string, string> = { barkhat: "бархат", velur: "велюр" };
+
+// Same idea as coverVariantLabel below, for the box-lining swatch.
+function boxMaterialLabel(row: {
+  box_material_name: string | null;
+  box_material_material: string | null;
+}): string | null {
+  if (!row.box_material_name) return null;
+  const family = row.box_material_material
+    ? (BOX_MATERIAL_LABELS_RU[row.box_material_material] ?? row.box_material_material)
+    : null;
+  return family ? `${family}: ${row.box_material_name}` : row.box_material_name;
+}
 
 // Shared by getOrderById and listProductionItems — turns the material
 // variant on an order_items row into one display string. For a plain
@@ -235,12 +258,14 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
             oi.spreads, oi.endpapers, oi.packaging, oi.express, oi.price, oi.production_stage,
             oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
             cmv.name as variant_name, cmv.material as variant_material,
-            co.variant_kind = 'kombi' as is_kombi
+            co.variant_kind = 'kombi' as is_kombi,
+            bmv.name as box_material_name, bmv.material as box_material_material
      from order_items oi
      join catalog_items ci on ci.id = oi.catalog_item_id
      join catalog_formats cf on cf.id = oi.catalog_format_id
      join cover_options co on co.id = oi.cover_option_id
      left join cover_material_variants cmv on cmv.id = oi.cover_variant_id
+     left join box_material_variants bmv on bmv.id = oi.box_material_id
      where oi.order_id = $1`,
     [id],
   );
@@ -267,6 +292,7 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
       spreads: r.spreads,
       endpapers: r.endpapers,
       packaging: r.packaging,
+      boxMaterialLabel: boxMaterialLabel(r),
       express: r.express,
       price: r.price,
       productionStage: r.production_stage,
@@ -310,7 +336,8 @@ export async function listProductionItems(): Promise<ProductionCard[]> {
             oi.spreads, c.full_name as client_name, oi.production_stage,
             oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
             cmv.name as variant_name, cmv.material as variant_material,
-            co.variant_kind = 'kombi' as is_kombi
+            co.variant_kind = 'kombi' as is_kombi,
+            oi.packaging, bmv.name as box_material_name, bmv.material as box_material_material
      from order_items oi
      join orders o on o.id = oi.order_id
      join clients c on c.id = o.client_id
@@ -318,6 +345,7 @@ export async function listProductionItems(): Promise<ProductionCard[]> {
      join catalog_formats cf on cf.id = oi.catalog_format_id
      join cover_options co on co.id = oi.cover_option_id
      left join cover_material_variants cmv on cmv.id = oi.cover_variant_id
+     left join box_material_variants bmv on bmv.id = oi.box_material_id
      where o.status not in ('CANCELLED')
      order by o.created_at asc`,
   );
@@ -335,6 +363,8 @@ export async function listProductionItems(): Promise<ProductionCard[]> {
     spreads: r.spreads,
     clientName: r.client_name,
     productionStage: r.production_stage,
+    packaging: r.packaging,
+    boxMaterialLabel: boxMaterialLabel(r),
   }));
 }
 

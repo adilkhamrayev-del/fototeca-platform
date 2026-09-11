@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { CatalogItemRecord } from "@/lib/repo/catalog";
 import type { CoverMaterialVariant } from "@/lib/repo/cover-variants";
+import type { BoxMaterialVariant } from "@/lib/repo/box-variants";
 import { submitOrder } from "@/app/order/[slug]/actions";
 
 type FileStatus = "checking" | "ok" | "bad";
@@ -47,9 +48,11 @@ function randomId() {
 export default function OrderConfigurator({
   item,
   coverMaterialVariants,
+  boxMaterialVariants,
 }: {
   item: CatalogItemRecord;
   coverMaterialVariants: CoverMaterialVariant[];
+  boxMaterialVariants: BoxMaterialVariant[];
 }) {
   const [formatId, setFormatId] = useState(item.formats[0].id);
   const format = useMemo(
@@ -137,6 +140,34 @@ export default function OrderConfigurator({
   const [endpapers, setEndpapers] = useState(true);
   const [packaging, setPackaging] = useState(false);
   const [express, setExpress] = useState(false);
+
+  // Box-lining material (бархат/велюр) — only relevant once packaging is
+  // checked. Unrelated to the book's own cover (coverVariantId above).
+  const [boxMaterialId, setBoxMaterialId] = useState<string | null>(null);
+  const [boxMaterialTab, setBoxMaterialTab] = useState<"barkhat" | "velur">("barkhat");
+
+  const barkhatVariants = useMemo(
+    () => boxMaterialVariants.filter((v) => v.material === "barkhat"),
+    [boxMaterialVariants],
+  );
+  const velurVariants = useMemo(
+    () => boxMaterialVariants.filter((v) => v.material === "velur"),
+    [boxMaterialVariants],
+  );
+  const allBoxVariants = useMemo(
+    () => [...barkhatVariants, ...velurVariants],
+    [barkhatVariants, velurVariants],
+  );
+
+  // Same "don't block on empty admin data" rule as the cover-variant popup:
+  // only require a pick once at least one swatch is actually configured.
+  const boxMaterialRequired = packaging && allBoxVariants.length > 0;
+  const boxMaterialSatisfied = !boxMaterialRequired || Boolean(boxMaterialId);
+
+  function togglePackaging(checked: boolean) {
+    setPackaging(checked);
+    if (!checked) setBoxMaterialId(null);
+  }
 
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -253,6 +284,7 @@ export default function OrderConfigurator({
     clientName.trim().length > 0 &&
     clientPhone.replace(/\D/g, "").length >= 10 &&
     variantSatisfied &&
+    boxMaterialSatisfied &&
     !submitting;
 
   async function handleSubmit() {
@@ -276,6 +308,7 @@ export default function OrderConfigurator({
       spreads,
       endpapers,
       packaging,
+      boxMaterialId,
       express,
       price: total,
       uploadDraftId: draftId,
@@ -523,11 +556,44 @@ export default function OrderConfigurator({
               <input
                 type="checkbox"
                 checked={packaging}
-                onChange={(e) => setPackaging(e.target.checked)}
+                onChange={(e) => togglePackaging(e.target.checked)}
                 className="h-4 w-4 accent-accent"
               />
               Подарочная упаковка (+{formatPrice(PACKAGING_PRICE)} ₸)
             </label>
+            {packaging && allBoxVariants.length > 0 && (
+              <div className="ml-6 flex flex-col gap-2 rounded-2xl border border-border bg-surface-2 p-3">
+                <p className="text-[11px] font-semibold text-text-muted">
+                  Отделка короба изнутри{boxMaterialRequired ? " *" : ""}
+                </p>
+                <div className="flex gap-1.5">
+                  {(["barkhat", "velur"] as const).map((tab) => {
+                    const variants = tab === "barkhat" ? barkhatVariants : velurVariants;
+                    if (variants.length === 0) return null;
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setBoxMaterialTab(tab)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                          boxMaterialTab === tab
+                            ? "bg-accent text-white"
+                            : "bg-surface text-text-muted"
+                        }`}
+                      >
+                        {tab === "barkhat" ? "Бархат" : "Велюр"}
+                      </button>
+                    );
+                  })}
+                </div>
+                <VariantGrid
+                  label=""
+                  variants={boxMaterialTab === "barkhat" ? barkhatVariants : velurVariants}
+                  selectedId={boxMaterialId}
+                  onSelect={setBoxMaterialId}
+                />
+              </div>
+            )}
             <label className="flex items-center gap-2.5 text-[13px] font-medium text-text-muted">
               <input
                 type="checkbox"
@@ -994,6 +1060,11 @@ function ComboPhotoUpload({
   );
 }
 
+// Loose shape shared by CoverMaterialVariant and BoxMaterialVariant — this
+// grid is reused for both the cover-variant popup and the inline box-lining
+// picker, which otherwise have nothing to do with each other.
+type SwatchVariant = { id: string; name: string; imageUrl: string | null };
+
 function VariantGrid({
   label,
   variants,
@@ -1001,13 +1072,15 @@ function VariantGrid({
   onSelect,
 }: {
   label: string;
-  variants: CoverMaterialVariant[];
+  variants: SwatchVariant[];
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
   return (
     <div>
-      <p className="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">{label}</p>
+      {label && (
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">{label}</p>
+      )}
       <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
         {variants.map((variant) => (
           <button

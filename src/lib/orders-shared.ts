@@ -61,4 +61,10 @@ export type ProductionCard = {
   spreads: number;
   clientName: string;
   productionStage: ProductionStage;
+  // Gift-box packaging + its lining swatch (бархат/велюр), if chosen — see
+  // box_material_variants in db/schema.sql. Production needs this on the
+  // card since it's a physical assembly step, same reasoning as the cover
+  // fields above.
+  packaging: boolean;
+  boxMaterialLabel: string | null;
 };

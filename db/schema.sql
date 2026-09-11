@@ -261,6 +261,29 @@ alter table order_items add column if not exists file_link_url text;
 -- under STORAGE_ROOT, which is /tmp on Vercel and never durable there.
 alter table order_items add column if not exists spread_photo_urls jsonb not null default '[]'::jsonb;
 
+-- Site-wide swatches for the box-lining picker shown when a customer checks
+-- "Подарочная упаковка" (packaging on order_items below) — bархат/велюр are
+-- an internal lining material for the gift box itself, unrelated to
+-- cover_material_variants above (which is the book's own cover). Same
+-- shape/pattern as cover_material_variants deliberately, for UI reuse —
+-- see /admin/box-materials.
+create table if not exists box_material_variants (
+  id uuid primary key default gen_random_uuid(),
+  material text not null check (material in ('barkhat', 'velur')),
+  name text not null,
+  image_url text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- Which box-lining swatch the customer picked when packaging = true. Null
+-- when packaging is false, or when packaging is true but no swatches were
+-- configured yet (picker only shows/requires a choice once at least one
+-- swatch exists — same "don't block on empty admin data" rule as
+-- cover_variant_id). `on delete set null` so retiring a swatch never blocks
+-- deleting it.
+alter table order_items add column if not exists box_material_id uuid references box_material_variants(id) on delete set null;
+
 -- Archive of orders imported from the old XAF system (zakaz.fototeca.kz).
 -- Deliberately NOT forced into orders/order_items: the legacy journal is
 -- free-form (one text field for delivery info, product names as plain

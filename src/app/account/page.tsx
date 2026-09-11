@@ -82,6 +82,12 @@ export default async function AccountPage() {
                   </p>
                 </div>
 
+                {item.packaging && (
+                  <p className="text-xs font-medium text-text-muted">
+                    🎁 Подарочная упаковка{item.boxMaterialLabel ? ` — ${item.boxMaterialLabel}` : ""}
+                  </p>
+                )}
+
                 <div>
                   <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
                     Файлы
