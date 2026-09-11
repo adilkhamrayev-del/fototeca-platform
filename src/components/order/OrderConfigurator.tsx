@@ -369,33 +369,59 @@ export default function OrderConfigurator({
               Хит2, тканевая и экокожа — варианты одного уровня, выбирается один
             </p>
             <div className="grid grid-cols-4 gap-2">
-              {format.coverOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => selectCoverOption(option)}
-                  className={`overflow-hidden rounded-xl border-2 ${
-                    option.id === coverOptionId ? "border-accent" : "border-transparent"
-                  }`}
-                  aria-label={option.name}
-                >
-                  {option.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={option.imageUrl}
-                      alt={option.name}
-                      className="block h-11 w-full object-cover"
-                    />
-                  ) : (
-                    <span
-                      className="block h-11 w-full"
-                      style={{
-                        background: `linear-gradient(160deg, ${option.gradient[0]}, ${option.gradient[1]})`,
-                      }}
-                    />
-                  )}
-                </button>
-              ))}
+              {format.coverOptions.map((option) => {
+                const isSelected = option.id === coverOptionId;
+                // Once the customer has picked a specific fabric/eco-leather
+                // swatch for THIS option, show that swatch's own photo on
+                // the tile instead of the option's generic preview — so the
+                // tile always reflects exactly what they chose, not just
+                // which category.
+                const selectedVariantImage =
+                  isSelected && option.variantKind !== "none"
+                    ? (allMaterialVariants.find((v) => v.id === coverVariantId)?.imageUrl ?? null)
+                    : null;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => selectCoverOption(option)}
+                    className={`relative overflow-hidden rounded-xl border-2 transition ${
+                      isSelected
+                        ? "border-accent shadow-[0_0_0_3px_var(--color-accent-soft)]"
+                        : "border-transparent"
+                    }`}
+                    aria-label={option.name}
+                  >
+                    {selectedVariantImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selectedVariantImage}
+                        alt={`${option.name}: ${coverVariantLabel() ?? ""}`}
+                        className="block h-11 w-full object-cover"
+                      />
+                    ) : option.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={option.imageUrl}
+                        alt={option.name}
+                        className="block h-11 w-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        className="block h-11 w-full"
+                        style={{
+                          background: `linear-gradient(160deg, ${option.gradient[0]}, ${option.gradient[1]})`,
+                        }}
+                      />
+                    )}
+                    {isSelected && (
+                      <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold leading-none text-white shadow">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-1.5 grid grid-cols-4 gap-2">
               {format.coverOptions.map((option) => (
@@ -411,9 +437,27 @@ export default function OrderConfigurator({
                 </span>
               ))}
             </div>
-            <p className="mt-3.5 text-xs text-text-muted">
-              Выбран тип обложки: <b className="text-text">{coverOption.name}</b>
-              {coverVariantLabel() && <> — {coverVariantLabel()}</>}
+            <p className="mt-3.5 flex items-center gap-2 text-xs text-text-muted">
+              {(() => {
+                const selectedVariant = allMaterialVariants.find((v) => v.id === coverVariantId);
+                return selectedVariant?.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selectedVariant.imageUrl}
+                    alt={selectedVariant.name}
+                    className="h-6 w-6 shrink-0 rounded-md border border-border object-cover"
+                  />
+                ) : null;
+              })()}
+              <span>
+                Выбран тип обложки: <b className="text-text">{coverOption.name}</b>
+                {coverVariantLabel() && (
+                  <>
+                    {" "}
+                    — <b className="text-text">{coverVariantLabel()}</b>
+                  </>
+                )}
+              </span>
             </p>
             {coverOption.variantKind !== "none" && variantRequired && (
               <button
@@ -952,10 +996,17 @@ function VariantGrid({
             key={variant.id}
             type="button"
             onClick={() => onSelect(variant.id)}
-            className={`flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 ${
-              variant.id === selectedId ? "border-accent" : "border-transparent"
+            className={`relative flex flex-col items-center gap-1 rounded-xl border-2 p-1.5 transition ${
+              variant.id === selectedId
+                ? "border-accent shadow-[0_0_0_3px_var(--color-accent-soft)]"
+                : "border-transparent"
             }`}
           >
+            {variant.id === selectedId && (
+              <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-bold leading-none text-white shadow">
+                ✓
+              </span>
+            )}
             <div className="h-14 w-full overflow-hidden rounded-lg bg-surface-2">
               {variant.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
