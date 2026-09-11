@@ -11,7 +11,7 @@ const navItems = [
   { href: "/admin/catalog", label: "Каталог", enabled: true, adminOnly: true },
   { href: "/admin/cover-materials", label: "Варианты обложек", enabled: true, adminOnly: true },
   { href: "/admin/legacy-orders", label: "Архив заказов", enabled: true, adminOnly: true },
-  { href: "/admin/clients", label: "Клиенты", enabled: false, adminOnly: true },
+  { href: "/admin/clients", label: "Клиенты", enabled: true, adminOnly: true },
   { href: "/admin/roles", label: "Роли", enabled: false, adminOnly: true },
   { href: "/admin/settings", label: "Настройки", enabled: false, adminOnly: true },
 ];

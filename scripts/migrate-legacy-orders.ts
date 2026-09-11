@@ -45,6 +45,10 @@ type LegacyRow = {
 async function main() {
   const jsonPath = process.argv[2];
   const importAll = process.argv.includes("--all");
+  // Builds the `clients` table (step 1) but skips `legacy_orders` (step 2)
+  // entirely — for when only the client base is wanted, not the old order
+  // journal archive.
+  const clientsOnly = process.argv.includes("--clients-only");
 
   if (!jsonPath) {
     console.error(
@@ -100,6 +104,12 @@ async function main() {
   }
 
   console.log(`Clients: ${clientsInserted} inserted, ${clientsUpdated} already existed`);
+
+  if (clientsOnly) {
+    console.log("--clients-only set: skipping legacy_orders import.");
+    await pool.end();
+    return;
+  }
 
   // --- 2. Legacy orders: most recent ORDER_LIMIT (or --all) ---
   const sorted = [...rows].sort((a, b) => (a.legacyDate ?? "").localeCompare(b.legacyDate ?? ""));
