@@ -1,48 +1,20 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { redirect, notFound } from "next/navigation";
 import { getCatalogItemBySlug } from "@/lib/repo/catalog";
 
 export const dynamic = "force-dynamic";
 
-export default async function CatalogItemPage({ params }: PageProps<"/catalog/[slug]">) {
+// This used to be a standalone "item details" page (gradient placeholder,
+// description, a separate "Оформить заказ" button) sitting between the
+// catalog grid and the actual order configurator — an extra click that
+// showed nothing the configurator itself doesn't already show up top. The
+// catalog grid now links straight to /order/[slug]; this route stays only
+// as a redirect so any old bookmarked/shared /catalog/[slug] link still
+// lands somewhere useful instead of a dead 404.
+export default async function CatalogItemRedirectPage({
+  params,
+}: PageProps<"/catalog/[slug]">) {
   const { slug } = await params;
   const item = await getCatalogItemBySlug(slug);
   if (!item || !item.isActive) notFound();
-
-  return (
-    <>
-      <Header />
-      <main className="flex-1 pb-16">
-        <div className="mx-auto max-w-6xl px-6 pt-12 lg:px-14">
-          <Link href="/catalog" className="text-sm font-semibold text-accent-ink">
-            ← Каталог
-          </Link>
-          <div className="mt-6 grid gap-10 md:grid-cols-2">
-            <div
-              className="h-72 rounded-3xl"
-              style={{
-                background: `linear-gradient(150deg, ${item.gradient[0]}, ${item.gradient[1]})`,
-              }}
-            />
-            <div className="flex flex-col gap-5">
-              <h1 className="font-heading text-3xl font-bold">{item.title}</h1>
-              <p className="text-sm text-text-muted">{item.description}</p>
-              <span className="text-xl font-semibold">
-                от {new Intl.NumberFormat("ru-RU").format(item.priceFrom)} ₸
-              </span>
-              <Link
-                href={`/order/${item.slug}`}
-                className="w-fit rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-white"
-              >
-                Оформить заказ
-              </Link>
-            </div>
-          </div>
-        </div>
-      </main>
-      <Footer />
-    </>
-  );
+  redirect(`/order/${slug}`);
 }

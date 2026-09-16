@@ -19,7 +19,7 @@ export default function CatalogGrid({
         {items.map((item) => (
           <Link
             key={item.slug}
-            href={`/catalog/${item.slug}`}
+            href={`/order/${item.slug}`}
             className="flex flex-col overflow-hidden rounded-3xl border border-border transition-shadow hover:shadow-lg"
           >
             <div
