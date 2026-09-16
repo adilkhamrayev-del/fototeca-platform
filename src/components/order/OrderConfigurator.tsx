@@ -56,14 +56,37 @@ function randomId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+// mm is what a customer preparing a print file actually thinks in — px is
+// an implementation detail of the pixel-exact server check. Drop the .0 for
+// whole millimeters (376×270, not 376.0×270.0) since formats are typed as
+// whole mm in the admin.
+function formatMm(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+// Digits-only phone (see client-session.ts) → "+7 700 000 00 00" for
+// display. Falls back to the raw digits for anything that doesn't match
+// the expected 11-digit "7XXXXXXXXXX" shape rather than mangling it.
+function formatPhoneDisplay(digits: string): string {
+  const match = /^7(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(digits);
+  if (!match) return `+${digits}`;
+  return `+7 ${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+}
+
 export default function OrderConfigurator({
   item,
   coverMaterialVariants,
   boxMaterialVariants,
+  loggedInClient,
 }: {
   item: CatalogItemRecord;
   coverMaterialVariants: CoverMaterialVariant[];
   boxMaterialVariants: BoxMaterialVariant[];
+  // Set when the visitor is already logged into /account (see
+  // client-session.ts) — skip asking for name/phone again and use these
+  // straight away, same as the personal-cabinet order history already
+  // knows who they are.
+  loggedInClient: { name: string; phone: string } | null;
 }) {
   // "Виньетка" (выпускные альбомы) is the one catalog item with a
   // fundamentally different upload flow: three separate blocks (обложки /
@@ -188,8 +211,8 @@ export default function OrderConfigurator({
     if (!checked) setBoxMaterialId(null);
   }
 
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
+  const [clientName, setClientName] = useState(loggedInClient?.name ?? "");
+  const [clientPhone, setClientPhone] = useState(loggedInClient?.phone ?? "");
 
   const [files, setFiles] = useState<UploadEntry[]>([]);
   // "Виньетка" only — the other two upload blocks. No fixed pixel/dpi check
@@ -445,26 +468,44 @@ export default function OrderConfigurator({
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-3 rounded-3xl border border-border bg-surface p-6">
             <h3 className="text-sm font-bold">Ваши данные</h3>
-            <label className="flex flex-col gap-1.5 text-[13px] font-medium">
-              Имя
-              <input
-                type="text"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                placeholder="Как к вам обращаться"
-                className="rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none focus:border-accent"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-[13px] font-medium">
-              Телефон
-              <input
-                type="tel"
-                value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
-                placeholder="+7 700 000 00 00"
-                className="rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none focus:border-accent"
-              />
-            </label>
+            {loggedInClient ? (
+              // Already logged in (see loggedInClient prop) — we already
+              // know who's ordering, no need to ask again. clientName/
+              // clientPhone stay set to loggedInClient's values (see their
+              // useState initializers above) and go straight into the order.
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[13px]">
+                <div>
+                  <p className="font-semibold">{loggedInClient.name}</p>
+                  <p className="text-text-muted">{formatPhoneDisplay(loggedInClient.phone)}</p>
+                </div>
+                <a href="/account/login" className="shrink-0 text-xs font-semibold text-accent-ink underline">
+                  Не вы?
+                </a>
+              </div>
+            ) : (
+              <>
+                <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                  Имя
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    placeholder="Как к вам обращаться"
+                    className="rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5 text-[13px] font-medium">
+                  Телефон
+                  <input
+                    type="tel"
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    placeholder="+7 700 000 00 00"
+                    className="rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+                  />
+                </label>
+              </>
+            )}
           </div>
 
           {item.formats.length > 1 && (
@@ -492,7 +533,8 @@ export default function OrderConfigurator({
           <div className="rounded-3xl border border-border bg-surface p-6">
             <h3 className="text-sm font-bold">Тип обложки</h3>
             <p className="mb-3 mt-1 text-xs text-text-muted">
-              Хит2, тканевая и экокожа — варианты одного уровня, выбирается один
+              {format.coverOptions.map((o) => o.name).join(", ")} — варианты одного уровня,
+              выбирается один
             </p>
             <div className="grid grid-cols-4 gap-2">
               {format.coverOptions.map((option) => {
@@ -702,7 +744,8 @@ export default function OrderConfigurator({
                 accept={undefined}
               />
               <h3 className="text-sm font-bold">
-                Индивидуальные развороты — {format.widthPx}×{format.heightPx} px (376×270 мм, 300 dpi)
+                Индивидуальные развороты — {formatMm(format.widthMm)}×{formatMm(format.heightMm)} мм,{" "}
+                {format.dpi} dpi
               </h3>
             </>
           )}
@@ -782,7 +825,8 @@ export default function OrderConfigurator({
             </div>
             <h3 className="font-heading text-lg font-bold">Перетащите файлы сюда</h3>
             <p className="max-w-sm text-[13px] text-text-muted">
-              JPG, sRGB, {format.widthPx}×{format.heightPx} px, имена 01, 02, 03…
+              JPG, sRGB, {formatMm(format.widthMm)}×{formatMm(format.heightMm)} мм ({format.dpi}{" "}
+              dpi = {format.widthPx}×{format.heightPx} px), имена 01, 02, 03…
             </p>
             <button
               type="button"
