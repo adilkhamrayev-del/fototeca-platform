@@ -30,9 +30,27 @@ export default function Header() {
         <div className="flex items-center gap-4">
           <Link
             href="/account"
-            className="hidden rounded-xl border border-border px-5 py-2.5 text-sm font-semibold sm:inline-flex"
+            className="inline-flex items-center rounded-xl border border-border px-3 py-2.5 text-sm font-semibold sm:px-5"
           >
-            Личный кабинет
+            <span className="hidden sm:inline">Личный кабинет</span>
+            <span className="sm:hidden" aria-label="Личный кабинет">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M4.5 20a7.5 7.5 0 0 1 15 0"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           </Link>
           <Link
             href="/cart"
