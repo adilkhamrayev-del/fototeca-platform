@@ -350,6 +350,9 @@ function CoverRow({
       >
         Удалить
       </button>
+      {!pending && state && "success" in state && state.success && (
+        <span className="text-xs font-medium text-ok">Сохранено</span>
+      )}
       {state?.error && <span className="text-xs font-medium text-red-600">{state.error}</span>}
       {deleteError && <span className="text-xs font-medium text-red-600">{deleteError}</span>}
     </form>
