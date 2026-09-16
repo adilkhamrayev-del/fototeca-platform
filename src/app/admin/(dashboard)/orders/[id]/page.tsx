@@ -117,6 +117,46 @@ export default async function AdminOrderDetailPage({
                 </td>
                 <td className="px-5 py-3">{item.spreads}</td>
                 <td className="px-5 py-3">
+                  {(item.coverPhotoUrls.length > 0 || item.commonFileUrls.length > 0) && (
+                    <div className="mb-1.5 flex flex-col gap-1 text-[11px] text-text-muted">
+                      {item.coverPhotoUrls.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          <span className="font-semibold">Обложки:</span>
+                          {item.coverPhotoUrls.map((url, i) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block h-9 w-9 overflow-hidden rounded-md border border-border transition hover:border-accent"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt={`Обложка ${i + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {item.commonFileUrls.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {item.commonFileUrls.map((url, i) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-lg bg-accent-soft px-2 py-1 font-semibold text-accent-ink"
+                            >
+                              📎 Общий файл {i + 1}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {item.spreadPhotoUrls.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {item.spreadPhotoUrls.map((url, i) => (

@@ -107,6 +107,24 @@ export default async function OrderPrintPage({
                   <span className="font-normal">{item.fileLinkUrl}</span>
                 </p>
               )}
+              {(item.coverPhotoUrls.length > 0 || item.commonFileUrls.length > 0) && (
+                <div className="mt-2 text-sm">
+                  {item.coverPhotoUrls.length > 0 && (
+                    <p>
+                      Обложки: <span className="font-semibold">{item.coverPhotoUrls.length} файл(ов)</span>
+                    </p>
+                  )}
+                  {item.commonFileUrls.length > 0 && (
+                    <p>
+                      Общие файлы:{" "}
+                      <span className="font-semibold">{item.commonFileUrls.length} файл(ов)</span>
+                    </p>
+                  )}
+                  <p className="text-xs text-text-muted print:text-black">
+                    Ссылки на файлы — в электронной карточке заказа в админке.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

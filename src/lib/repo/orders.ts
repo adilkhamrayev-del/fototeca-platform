@@ -50,6 +50,12 @@ export type NewOrderInput = {
   // actually see/download the files — the STORAGE_ROOT copy finalizeOrderFiles
   // moves around is /tmp-only on Vercel and was never retrievable there.
   spreadPhotoUrls?: string[];
+  // "Виньетка" (выпускные альбомы) only: two more upload blocks alongside
+  // spreadPhotoUrls above — see the isVignette branch in
+  // OrderConfigurator.tsx and /api/order/cover-files, /api/order/common-files.
+  // Empty for every other catalog item.
+  coverPhotoUrls?: string[];
+  commonFileUrls?: string[];
 };
 
 async function generateOrderNumber(client: { query: typeof pool.query }): Promise<string> {
@@ -102,8 +108,8 @@ export async function createOrder(
          (order_id, catalog_item_id, catalog_format_id, cover_option_id, spreads,
           endpapers, packaging, express, price, upload_draft_id,
           cover_variant_id, cover_combo_photo_url, file_link_url, spread_photo_urls,
-          box_material_id)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          box_material_id, cover_photo_urls, common_file_urls)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         orderId,
         input.catalogItemId,
@@ -120,6 +126,8 @@ export async function createOrder(
         input.fileLinkUrl ?? null,
         JSON.stringify(input.spreadPhotoUrls ?? []),
         input.boxMaterialId ?? null,
+        JSON.stringify(input.coverPhotoUrls ?? []),
+        JSON.stringify(input.commonFileUrls ?? []),
       ],
     );
 
@@ -196,6 +204,10 @@ export type OrderDetail = OrderListRow & {
     coverComboPhotoUrl: string | null;
     fileLinkUrl: string | null;
     spreadPhotoUrls: string[];
+    // "Виньетка" only — the other two upload blocks (see cover_photo_urls /
+    // common_file_urls in db/schema.sql). Empty for every other item.
+    coverPhotoUrls: string[];
+    commonFileUrls: string[];
     spreads: number;
     endpapers: boolean;
     packaging: boolean;
@@ -257,6 +269,7 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
     `select oi.id, ci.title as item_title, cf.name as format_name, co.name as cover_name,
             oi.spreads, oi.endpapers, oi.packaging, oi.express, oi.price, oi.production_stage,
             oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
+            oi.cover_photo_urls, oi.common_file_urls,
             cmv.name as variant_name, cmv.material as variant_material,
             co.variant_kind = 'kombi' as is_kombi,
             bmv.name as box_material_name, bmv.material as box_material_material
@@ -289,6 +302,8 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
       coverComboPhotoUrl: r.cover_combo_photo_url,
       fileLinkUrl: r.file_link_url,
       spreadPhotoUrls: r.spread_photo_urls ?? [],
+      coverPhotoUrls: r.cover_photo_urls ?? [],
+      commonFileUrls: r.common_file_urls ?? [],
       spreads: r.spreads,
       endpapers: r.endpapers,
       packaging: r.packaging,
@@ -335,6 +350,7 @@ export async function listProductionItems(): Promise<ProductionCard[]> {
             ci.title as item_title, cf.name as format_name, co.name as cover_name,
             oi.spreads, c.full_name as client_name, oi.production_stage,
             oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
+            oi.cover_photo_urls, oi.common_file_urls,
             cmv.name as variant_name, cmv.material as variant_material,
             co.variant_kind = 'kombi' as is_kombi,
             oi.packaging, bmv.name as box_material_name, bmv.material as box_material_material
@@ -360,6 +376,8 @@ export async function listProductionItems(): Promise<ProductionCard[]> {
     coverComboPhotoUrl: r.cover_combo_photo_url,
     fileLinkUrl: r.file_link_url,
     spreadPhotoUrls: r.spread_photo_urls ?? [],
+    coverPhotoUrls: r.cover_photo_urls ?? [],
+    commonFileUrls: r.common_file_urls ?? [],
     spreads: r.spreads,
     clientName: r.client_name,
     productionStage: r.production_stage,

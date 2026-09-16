@@ -43,9 +43,20 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   "video/quicktime": "mov",
 };
 
-export const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = Object.fromEntries(
-  Object.entries(EXTENSION_BY_MIME).map(([mime, ext]) => [ext, mime]),
-);
+export const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(EXTENSION_BY_MIME).map(([mime, ext]) => [ext, mime])),
+  // Extra extensions the "виньетка" order flow's "Общие файлы" block can
+  // receive (see /api/order/common-files) — arbitrary print-production
+  // files, not just images/video. Only used to serve them back out on the
+  // self-hosted server (MEDIA_ROOT); production reads them straight off
+  // Vercel Blob's own URL and never hits this route.
+  pdf: "application/pdf",
+  zip: "application/zip",
+  psd: "image/vnd.adobe.photoshop",
+  tif: "image/tiff",
+  tiff: "image/tiff",
+  bin: "application/octet-stream",
+};
 
 export function extensionForMime(mime: string): string | null {
   return EXTENSION_BY_MIME[mime] ?? null;
@@ -162,4 +173,33 @@ export async function uploadSpreadPhoto(
   draftId: string,
 ): Promise<string> {
   return uploadAdminMedia(buffer, filename, contentType, `${SPREAD_PHOTO_SUBDIR}/${draftId}`);
+}
+
+// Two more customer-uploaded blocks, both specific to the "виньетка"
+// (выпускные альбомы) order flow — see the isVignette branch in
+// OrderConfigurator.tsx. Unlike spreads, neither block enforces a fixed
+// pixel size/dpi (that's what makes them "cover" and "common files" rather
+// than more individual spreads), so both accept any image (covers) or any
+// file at all (common files) rather than only JPG.
+export const COVER_UPLOAD_SUBDIR = "order-covers";
+export const MAX_COVER_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB — print-res cover art
+export const COMMON_FILES_SUBDIR = "order-common-files";
+export const MAX_COMMON_FILE_BYTES = 60 * 1024 * 1024; // 60 MB — may be a layered PSD/TIFF
+
+export async function uploadOrderCoverFile(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+  draftId: string,
+): Promise<string> {
+  return uploadAdminMedia(buffer, filename, contentType, `${COVER_UPLOAD_SUBDIR}/${draftId}`);
+}
+
+export async function uploadOrderCommonFile(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+  draftId: string,
+): Promise<string> {
+  return uploadAdminMedia(buffer, filename, contentType, `${COMMON_FILES_SUBDIR}/${draftId}`);
 }

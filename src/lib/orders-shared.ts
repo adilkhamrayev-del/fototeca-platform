@@ -58,6 +58,12 @@ export type ProductionCard = {
   // customer's actual files.
   fileLinkUrl: string | null;
   spreadPhotoUrls: string[];
+  // "Виньетка" (выпускные альбомы) only — two more upload blocks alongside
+  // spreadPhotoUrls, see cover_photo_urls/common_file_urls in db/schema.sql
+  // and the isVignette branch in OrderConfigurator.tsx. Empty for every
+  // other catalog item.
+  coverPhotoUrls: string[];
+  commonFileUrls: string[];
   spreads: number;
   clientName: string;
   productionStage: ProductionStage;

@@ -261,6 +261,16 @@ alter table order_items add column if not exists file_link_url text;
 -- under STORAGE_ROOT, which is /tmp on Vercel and never durable there.
 alter table order_items add column if not exists spread_photo_urls jsonb not null default '[]'::jsonb;
 
+-- "Виньетка" (выпускные альбомы, slug vypusknye-albomy) uploads its files in
+-- three separate blocks instead of just one — обложки / общие файлы /
+-- индивидуальные развороты. spread_photo_urls above already covers the
+-- individual-spreads block (376×270мм @ 300dpi, same dimension check as any
+-- other catalog item's spreads); these two columns are the other two
+-- blocks. Empty jsonb arrays for every other catalog item, which has no use
+-- for them. See OrderConfigurator.tsx's isVignette branch.
+alter table order_items add column if not exists cover_photo_urls jsonb not null default '[]'::jsonb;
+alter table order_items add column if not exists common_file_urls jsonb not null default '[]'::jsonb;
+
 -- Site-wide swatches for the box-lining picker shown when a customer checks
 -- "Подарочная упаковка" (packaging on order_items below) — bархат/велюр are
 -- an internal lining material for the gift box itself, unrelated to

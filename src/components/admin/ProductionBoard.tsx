@@ -69,6 +69,14 @@ export default function ProductionBoard({ items }: { items: ProductionCard[] }) 
                         🎁 Упаковка{item.boxMaterialLabel ? ` — ${item.boxMaterialLabel}` : ""}
                       </p>
                     )}
+                    {(item.coverPhotoUrls.length > 0 || item.commonFileUrls.length > 0) && (
+                      <p className="text-[11px] text-text-muted">
+                        {item.coverPhotoUrls.length > 0 && `обложки: ${item.coverPhotoUrls.length}`}
+                        {item.coverPhotoUrls.length > 0 && item.commonFileUrls.length > 0 && " · "}
+                        {item.commonFileUrls.length > 0 && `общие файлы: ${item.commonFileUrls.length}`}
+                        {" — см. карточку заказа"}
+                      </p>
+                    )}
                     {item.spreadPhotoUrls.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {item.spreadPhotoUrls.map((url, i) => (

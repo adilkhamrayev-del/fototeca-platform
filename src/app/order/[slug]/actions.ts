@@ -23,6 +23,10 @@ export type SubmitOrderInput = {
   // Durable URLs for the customer's uploaded spread photos, in page order
   // — see NewOrderInput's own comment in src/lib/repo/orders.ts.
   spreadPhotoUrls?: string[];
+  // "Виньетка" (выпускные альбомы) only — two more upload blocks alongside
+  // spreadPhotoUrls above. See NewOrderInput's own comment.
+  coverPhotoUrls?: string[];
+  commonFileUrls?: string[];
 };
 
 export async function submitOrder(
@@ -54,6 +58,8 @@ export async function submitOrder(
       uploadDraftId: input.uploadDraftId,
       fileLinkUrl,
       spreadPhotoUrls: input.spreadPhotoUrls ?? [],
+      coverPhotoUrls: input.coverPhotoUrls ?? [],
+      commonFileUrls: input.commonFileUrls ?? [],
     });
     return { orderNumber };
   } catch (err) {

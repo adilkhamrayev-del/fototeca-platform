@@ -88,9 +88,61 @@ export default async function AccountPage() {
                   </p>
                 )}
 
+                {(item.coverPhotoUrls.length > 0 || item.commonFileUrls.length > 0) && (
+                  <div className="flex flex-col gap-2">
+                    {item.coverPhotoUrls.length > 0 && (
+                      <div>
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                          Обложки
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {item.coverPhotoUrls.map((url, i) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block h-16 w-16 overflow-hidden rounded-lg border border-border transition hover:border-accent"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt={`Обложка ${i + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {item.commonFileUrls.length > 0 && (
+                      <div>
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                          Общие файлы
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.commonFileUrls.map((url, i) => (
+                            <a
+                              key={url}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent-ink"
+                            >
+                              📎 Файл {i + 1}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                    Файлы
+                    {item.coverPhotoUrls.length > 0 || item.commonFileUrls.length > 0
+                      ? "Индивидуальные развороты"
+                      : "Файлы"}
                   </p>
                   {item.spreadPhotoUrls.length > 0 ? (
                     <div className="flex flex-wrap gap-2">

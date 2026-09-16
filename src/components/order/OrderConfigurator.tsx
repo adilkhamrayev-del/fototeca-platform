@@ -27,6 +27,17 @@ type UploadEntry = {
   url?: string;
 };
 
+// Simpler than UploadEntry — no client-side dimension pre-check, since
+// neither cover files nor common files enforce a fixed size (see
+// isVignette above).
+type SimpleUploadEntry = {
+  id: string;
+  name: string;
+  status: "uploading" | "ok" | "bad";
+  reason?: string;
+  url?: string;
+};
+
 const PACKAGING_PRICE = 1500;
 const EXPRESS_SURCHARGE_PER_SPREAD = 150;
 // Extra charge for skipping the direct JPG uploader and instead sending a
@@ -54,6 +65,14 @@ export default function OrderConfigurator({
   coverMaterialVariants: CoverMaterialVariant[];
   boxMaterialVariants: BoxMaterialVariant[];
 }) {
+  // "Виньетка" (выпускные альбомы) is the one catalog item with a
+  // fundamentally different upload flow: three separate blocks (обложки /
+  // общие файлы / индивидуальные развороты) instead of the single
+  // files-or-link block every other item uses. Gated on slug rather than a
+  // DB flag since this is currently a one-off, item-specific flow — see
+  // claude/spisok-zadach.md for the request that introduced it.
+  const isVignette = item.slug === "vypusknye-albomy";
+
   const [formatId, setFormatId] = useState(item.formats[0].id);
   const format = useMemo(
     () => item.formats.find((f) => f.id === formatId) ?? item.formats[0],
@@ -173,6 +192,11 @@ export default function OrderConfigurator({
   const [clientPhone, setClientPhone] = useState("");
 
   const [files, setFiles] = useState<UploadEntry[]>([]);
+  // "Виньетка" only — the other two upload blocks. No fixed pixel/dpi check
+  // (unlike spreads above), so these are much simpler: upload, get a URL
+  // back, done. See /api/order/cover-files and /api/order/common-files.
+  const [coverFiles, setCoverFiles] = useState<SimpleUploadEntry[]>([]);
+  const [commonFiles, setCommonFiles] = useState<SimpleUploadEntry[]>([]);
   const [uploadMode, setUploadMode] = useState<"files" | "link">("files");
   const [fileLinkUrl, setFileLinkUrl] = useState("");
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
@@ -262,6 +286,47 @@ export default function OrderConfigurator({
     setFiles((prev) => prev.filter((f) => f.id !== id));
   }
 
+  async function uploadSimpleFile(
+    file: File,
+    endpoint: string,
+    setter: (updater: (prev: SimpleUploadEntry[]) => SimpleUploadEntry[]) => void,
+  ) {
+    const id = randomId();
+    setter((prev) => [...prev, { id, name: file.name, status: "uploading" }]);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      body.set("draftId", draftId);
+      const res = await fetch(endpoint, { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) {
+        setter((prev) =>
+          prev.map((f) => (f.id === id ? { ...f, status: "bad", reason: data.error } : f)),
+        );
+        return;
+      }
+      setter((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, status: "ok", url: data.url } : f)),
+      );
+    } catch {
+      setter((prev) =>
+        prev.map((f) =>
+          f.id === id ? { ...f, status: "bad", reason: "Не удалось загрузить — проверьте соединение" } : f,
+        ),
+      );
+    }
+  }
+
+  function handleCoverFiles(fileList: FileList | null) {
+    if (!fileList) return;
+    for (const file of Array.from(fileList)) void uploadSimpleFile(file, "/api/order/cover-files", setCoverFiles);
+  }
+
+  function handleCommonFiles(fileList: FileList | null) {
+    if (!fileList) return;
+    for (const file of Array.from(fileList)) void uploadSimpleFile(file, "/api/order/common-files", setCommonFiles);
+  }
+
   const validCount = files.filter((f) => f.status === "ok").length;
   const checkingCount = files.filter((f) => f.status === "checking").length;
   const progress = Math.min(100, Math.round((validCount / spreads) * 100));
@@ -279,8 +344,16 @@ export default function OrderConfigurator({
   const filesSatisfied =
     uploadMode === "files" ? validCount >= spreads && checkingCount === 0 : linkValid;
 
+  // Cover/common files are optional (no minimum count specified), but
+  // submission still waits for any in-flight upload to finish so a
+  // half-uploaded file's URL is never silently dropped from the order.
+  const coverCommonUploading =
+    coverFiles.some((f) => f.status === "uploading") ||
+    commonFiles.some((f) => f.status === "uploading");
+
   const canSubmit =
     filesSatisfied &&
+    (!isVignette || !coverCommonUploading) &&
     clientName.trim().length > 0 &&
     clientPhone.replace(/\D/g, "").length >= 10 &&
     variantSatisfied &&
@@ -314,6 +387,8 @@ export default function OrderConfigurator({
       uploadDraftId: draftId,
       fileLinkUrl: uploadMode === "link" ? linkTrimmed : null,
       spreadPhotoUrls,
+      coverPhotoUrls: coverFiles.filter((f) => f.status === "ok" && f.url).map((f) => f.url as string),
+      commonFileUrls: commonFiles.filter((f) => f.status === "ok" && f.url).map((f) => f.url as string),
     });
     setSubmitting(false);
     if ("error" in result) {
@@ -608,6 +683,29 @@ export default function OrderConfigurator({
 
         {/* Upload column */}
         <div className="flex flex-col gap-5">
+          {isVignette && (
+            <>
+              <SimpleUploadBlock
+                title="Обложки"
+                hint="Готовые файлы обложек — любой формат изображения, без жёстких требований к размеру."
+                entries={coverFiles}
+                onSelect={handleCoverFiles}
+                onRemove={(id) => setCoverFiles((prev) => prev.filter((f) => f.id !== id))}
+                accept="image/*"
+              />
+              <SimpleUploadBlock
+                title="Общие файлы"
+                hint="Файлы, общие для всего альбома (не по разворотам) — любой тип файла."
+                entries={commonFiles}
+                onSelect={handleCommonFiles}
+                onRemove={(id) => setCommonFiles((prev) => prev.filter((f) => f.id !== id))}
+                accept={undefined}
+              />
+              <h3 className="text-sm font-bold">
+                Индивидуальные развороты — {format.widthPx}×{format.heightPx} px (376×270 мм, 300 dpi)
+              </h3>
+            </>
+          )}
           <div className="flex gap-2 rounded-2xl border border-border bg-surface-2 p-1.5">
             <button
               type="button"
@@ -1055,6 +1153,83 @@ function ComboPhotoUpload({
       />
       {uploadError && (
         <p className="mt-1.5 text-[11px] font-medium text-red-600">{uploadError}</p>
+      )}
+    </div>
+  );
+}
+
+// Small, generic multi-file upload block used for "виньетка"'s two
+// non-spread blocks (обложки / общие файлы) — no dimension/dpi validation,
+// just "pick files, upload, show a list with status". `accept` is left
+// undefined for common files since any file type is allowed there.
+function SimpleUploadBlock({
+  title,
+  hint,
+  entries,
+  onSelect,
+  onRemove,
+  accept,
+}: {
+  title: string;
+  hint: string;
+  entries: SimpleUploadEntry[];
+  onSelect: (files: FileList | null) => void;
+  onRemove: (id: string) => void;
+  accept?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-col gap-2.5 rounded-3xl border border-border bg-surface p-6">
+      <h3 className="text-sm font-bold">{title}</h3>
+      <p className="text-xs text-text-muted">{hint}</p>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="self-start rounded-xl border-2 border-dashed border-border px-4 py-2.5 text-xs font-semibold text-text-muted"
+      >
+        Выбрать файлы
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept={accept}
+        className="hidden"
+        onChange={(e) => {
+          onSelect(e.target.files);
+          e.target.value = "";
+        }}
+      />
+      {entries.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {entries.map((f) => (
+            <li
+              key={f.id}
+              className="flex items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-1.5 text-xs"
+            >
+              <span className="truncate">{f.name}</span>
+              <span className="flex shrink-0 items-center gap-2">
+                {f.status === "uploading" && (
+                  <span className="text-text-muted">Загрузка…</span>
+                )}
+                {f.status === "ok" && <span className="font-semibold text-ok">✓</span>}
+                {f.status === "bad" && (
+                  <span className="font-semibold text-red-600" title={f.reason}>
+                    ✕ {f.reason ?? "ошибка"}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onRemove(f.id)}
+                  className="font-bold text-text-muted"
+                  aria-label="Удалить"
+                >
+                  ×
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
