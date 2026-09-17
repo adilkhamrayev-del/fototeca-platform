@@ -14,6 +14,14 @@ type DeleteFn = (id: string) => Promise<{ error?: string }>;
 const inputClass =
   "w-full rounded-lg border border-border px-2.5 py-1.5 text-sm outline-none focus:border-accent";
 
+// Same Save/Delete pair styling as every other row-level form in the admin
+// catalog editors (cover options, box-material variants) — see the
+// matching comment in CatalogFormatsEditor.tsx.
+const saveButtonClass =
+  "rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-50";
+const deleteButtonClass =
+  "rounded-lg border border-red-300 px-4 py-2 text-xs font-semibold text-red-600 disabled:opacity-50";
+
 export default function CoverMaterialsEditor({
   tkanevaya,
   ekokozha,
@@ -181,11 +189,7 @@ function VariantRow({
         className={`${inputClass} w-48`}
         placeholder="Название варианта"
       />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-      >
+      <button type="submit" disabled={pending} className={saveButtonClass}>
         {pending ? "…" : "Сохранить"}
       </button>
       <button
@@ -199,10 +203,11 @@ function VariantRow({
             if (result.error) setDeleteError(result.error);
           });
         }}
-        className="text-xs font-semibold text-red-600 disabled:opacity-50"
+        className={deleteButtonClass}
       >
-        Удалить
+        {deleting ? "…" : "Удалить"}
       </button>
+      {state?.success && <span className="text-xs font-medium text-ok">Сохранено</span>}
       {state?.error && <span className="text-xs font-medium text-red-600">{state.error}</span>}
       {deleteError && <span className="text-xs font-medium text-red-600">{deleteError}</span>}
     </form>

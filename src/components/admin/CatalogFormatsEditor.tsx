@@ -18,6 +18,17 @@ type DeleteFn = (id: string) => Promise<{ error?: string }>;
 const inputClass =
   "w-full rounded-lg border border-border px-2.5 py-1.5 text-sm outline-none focus:border-accent";
 
+// Same size/weight as the format's own "Сохранить формат" button below —
+// every row-level Save/Delete pair in the admin (cover options here, cover-
+// material and box-material variants in their own editors) uses these two
+// so the whole catalog editor reads as one consistent set of controls
+// instead of the small text-link "Удалить" it used to be next to a
+// smaller outlined "Сохранить".
+const saveButtonClass =
+  "rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-50";
+const deleteButtonClass =
+  "rounded-lg border border-red-300 px-4 py-2 text-xs font-semibold text-red-600 disabled:opacity-50";
+
 function computePx(widthMm: string, heightMm: string, dpi: string): string {
   const w = Number(widthMm);
   const h = Number(heightMm);
@@ -160,14 +171,9 @@ function FormatCard({
         {state?.error && <p className="text-xs font-medium text-red-600">{state.error}</p>}
 
         <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
-          >
+          <button type="submit" disabled={pending} className={saveButtonClass}>
             {pending ? "Сохранение…" : "Сохранить формат"}
           </button>
-          {state?.success && <span className="text-xs font-medium text-ok">Сохранено</span>}
           <button
             type="button"
             disabled={deleting}
@@ -179,10 +185,11 @@ function FormatCard({
                 if (result.error) setDeleteError(result.error);
               });
             }}
-            className="ml-auto text-xs font-semibold text-red-600 disabled:opacity-50"
+            className={deleteButtonClass}
           >
             {deleting ? "Удаление…" : "Удалить формат"}
           </button>
+          {state?.success && <span className="text-xs font-medium text-ok">Сохранено</span>}
         </div>
         {deleteError && <p className="text-xs font-medium text-red-600">{deleteError}</p>}
       </form>
@@ -328,11 +335,7 @@ function CoverRow({
           </option>
         ))}
       </select>
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-      >
+      <button type="submit" disabled={pending} className={saveButtonClass}>
         {pending ? "…" : "Сохранить"}
       </button>
       <button
@@ -346,13 +349,11 @@ function CoverRow({
             if (result.error) setDeleteError(result.error);
           });
         }}
-        className="text-xs font-semibold text-red-600 disabled:opacity-50"
+        className={deleteButtonClass}
       >
-        Удалить
+        {deleting ? "…" : "Удалить"}
       </button>
-      {!pending && state && "success" in state && state.success && (
-        <span className="text-xs font-medium text-ok">Сохранено</span>
-      )}
+      {state?.success && <span className="text-xs font-medium text-ok">Сохранено</span>}
       {state?.error && <span className="text-xs font-medium text-red-600">{state.error}</span>}
       {deleteError && <span className="text-xs font-medium text-red-600">{deleteError}</span>}
     </form>
