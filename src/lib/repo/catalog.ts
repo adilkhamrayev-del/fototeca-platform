@@ -1,5 +1,13 @@
 import { pool } from "@/lib/db";
-import type { CatalogFormat, CatalogItem, CoverOption, CoverVariantKind } from "@/lib/content";
+import type {
+  CatalogFormat,
+  CatalogItem,
+  CoverOption,
+  CoverVariantKind,
+  ProductKind,
+  WideFormatOption,
+  WideFormatPricingMode,
+} from "@/lib/content";
 
 export type CatalogItemRecord = CatalogItem & {
   id: string;
@@ -16,6 +24,20 @@ type ItemRow = {
   gradient_to: string;
   requires_upload: boolean;
   is_active: boolean;
+  product_kind: ProductKind;
+};
+
+type WideFormatOptionRow = {
+  id: string;
+  catalog_item_id: string;
+  name: string;
+  pricing_mode: WideFormatPricingMode;
+  price_per_sqm: number;
+  price_per_meter: number;
+  min_width_cm: number;
+  max_width_cm: number;
+  min_height_cm: number;
+  max_height_cm: number;
 };
 
 type FormatRow = {
@@ -96,6 +118,29 @@ async function assemble(itemRows: ItemRow[]): Promise<CatalogItemRecord[]> {
     formatsByItem.set(f.catalog_item_id, list);
   }
 
+  const { rows: wideFormatRows } = await pool.query<WideFormatOptionRow>(
+    `select id, catalog_item_id, name, pricing_mode, price_per_sqm, price_per_meter,
+            min_width_cm, max_width_cm, min_height_cm, max_height_cm
+     from wide_format_options where catalog_item_id = any($1) order by sort_order, name`,
+    [itemIds],
+  );
+  const wideFormatOptionsByItem = new Map<string, WideFormatOption[]>();
+  for (const o of wideFormatRows) {
+    const list = wideFormatOptionsByItem.get(o.catalog_item_id) ?? [];
+    list.push({
+      id: o.id,
+      name: o.name,
+      pricingMode: o.pricing_mode,
+      pricePerSqm: o.price_per_sqm,
+      pricePerMeter: o.price_per_meter,
+      minWidthCm: o.min_width_cm,
+      maxWidthCm: o.max_width_cm,
+      minHeightCm: o.min_height_cm,
+      maxHeightCm: o.max_height_cm,
+    });
+    wideFormatOptionsByItem.set(o.catalog_item_id, list);
+  }
+
   return itemRows.map((row) => ({
     id: row.id,
     slug: row.slug,
@@ -105,12 +150,15 @@ async function assemble(itemRows: ItemRow[]): Promise<CatalogItemRecord[]> {
     gradient: [row.gradient_from, row.gradient_to],
     requiresUpload: row.requires_upload,
     isActive: row.is_active,
+    productKind: row.product_kind,
     formats: formatsByItem.get(row.id) ?? [],
+    wideFormatOptions: wideFormatOptionsByItem.get(row.id) ?? [],
   }));
 }
 
 const SELECT_ITEMS = `
-  select id, slug, title, description, price_from, gradient_from, gradient_to, requires_upload, is_active
+  select id, slug, title, description, price_from, gradient_from, gradient_to, requires_upload,
+         is_active, product_kind
   from catalog_items
 `;
 
@@ -172,6 +220,7 @@ export async function createCatalogItem(input: {
   description: string;
   priceFrom: number;
   requiresUpload: boolean;
+  productKind?: ProductKind;
 }): Promise<string> {
   // Slug has to be unique (catalog_items.slug is UNIQUE) — start from the
   // title and suffix with -2, -3… on collision rather than failing the
@@ -185,9 +234,16 @@ export async function createCatalogItem(input: {
   }
 
   const { rows } = await pool.query<{ id: string }>(
-    `insert into catalog_items (slug, title, description, price_from, requires_upload, is_active)
-     values ($1, $2, $3, $4, $5, true) returning id`,
-    [slug, input.title, input.description, input.priceFrom, input.requiresUpload],
+    `insert into catalog_items (slug, title, description, price_from, requires_upload, is_active, product_kind)
+     values ($1, $2, $3, $4, $5, true, $6) returning id`,
+    [
+      slug,
+      input.title,
+      input.description,
+      input.priceFrom,
+      input.requiresUpload,
+      input.productKind ?? "standard",
+    ],
   );
   return rows[0].id;
 }
@@ -290,4 +346,92 @@ export async function updateCoverOption(id: string, input: CoverOptionInput): Pr
 /** Same foreign-key-violation caveat as deleteCatalogFormat above. */
 export async function deleteCoverOption(id: string): Promise<void> {
   await pool.query("delete from cover_options where id = $1", [id]);
+}
+
+type WideFormatOptionInput = {
+  name: string;
+  pricingMode: WideFormatPricingMode;
+  pricePerSqm: number;
+  pricePerMeter: number;
+  minWidthCm: number;
+  maxWidthCm: number;
+  minHeightCm: number;
+  maxHeightCm: number;
+};
+
+export async function createWideFormatOption(
+  catalogItemId: string,
+  input: WideFormatOptionInput,
+): Promise<void> {
+  await pool.query(
+    `insert into wide_format_options
+       (catalog_item_id, name, pricing_mode, price_per_sqm, price_per_meter,
+        min_width_cm, max_width_cm, min_height_cm, max_height_cm)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      catalogItemId,
+      input.name,
+      input.pricingMode,
+      input.pricePerSqm,
+      input.pricePerMeter,
+      input.minWidthCm,
+      input.maxWidthCm,
+      input.minHeightCm,
+      input.maxHeightCm,
+    ],
+  );
+}
+
+export async function updateWideFormatOption(id: string, input: WideFormatOptionInput): Promise<void> {
+  await pool.query(
+    `update wide_format_options
+       set name = $1, pricing_mode = $2, price_per_sqm = $3, price_per_meter = $4,
+           min_width_cm = $5, max_width_cm = $6, min_height_cm = $7, max_height_cm = $8
+     where id = $9`,
+    [
+      input.name,
+      input.pricingMode,
+      input.pricePerSqm,
+      input.pricePerMeter,
+      input.minWidthCm,
+      input.maxWidthCm,
+      input.minHeightCm,
+      input.maxHeightCm,
+      id,
+    ],
+  );
+}
+
+/** Same foreign-key-violation caveat as deleteCatalogFormat above (blocked
+ * by any order_items row referencing it via wide_format_option_id). */
+export async function deleteWideFormatOption(id: string): Promise<void> {
+  await pool.query("delete from wide_format_options where id = $1", [id]);
+}
+
+/** Fetches one wide_format_options row for server-side price recomputation
+ * at order time (see createWideFormatOrder in repo/orders.ts) — never trust
+ * a client-submitted price when the customer can type arbitrary dimensions. */
+export async function getWideFormatOptionById(
+  id: string,
+): Promise<(WideFormatOption & { catalogItemId: string }) | null> {
+  const { rows } = await pool.query<WideFormatOptionRow>(
+    `select id, catalog_item_id, name, pricing_mode, price_per_sqm, price_per_meter,
+            min_width_cm, max_width_cm, min_height_cm, max_height_cm
+     from wide_format_options where id = $1`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    catalogItemId: row.catalog_item_id,
+    name: row.name,
+    pricingMode: row.pricing_mode,
+    pricePerSqm: row.price_per_sqm,
+    pricePerMeter: row.price_per_meter,
+    minWidthCm: row.min_width_cm,
+    maxWidthCm: row.max_width_cm,
+    minHeightCm: row.min_height_cm,
+    maxHeightCm: row.max_height_cm,
+  };
 }

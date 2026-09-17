@@ -38,6 +38,30 @@ export type CatalogFormat = {
   coverOptions: CoverOption[];
 };
 
+// 'area' — price = площадь (м²) × pricePerSqm (печать холстов).
+// 'perimeter_area' — price = периметр (м) × pricePerMeter + площадь (м²) ×
+// pricePerSqm (изготовление картин: багет по периметру + печать по площади).
+export type WideFormatPricingMode = "area" | "perimeter_area";
+
+export type WideFormatOption = {
+  id: string;
+  name: string; // "Печать холстов" | "Изготовление картин"
+  pricingMode: WideFormatPricingMode;
+  pricePerSqm: number;
+  pricePerMeter: number;
+  minWidthCm: number;
+  maxWidthCm: number;
+  minHeightCm: number;
+  maxHeightCm: number;
+};
+
+// 'standard' — the usual formats/covers model (fotokniga, vypusknye-albomy).
+// 'wide_format' — customer types their own width/height (cm), price comes
+// from area/perimeter instead of a fixed per-spread rate — see
+// wide_format_options in db/schema.sql. Discriminates which admin editor
+// and order-page configurator a catalog item renders.
+export type ProductKind = "standard" | "wide_format";
+
 export type CatalogItem = {
   slug: string;
   title: string;
@@ -45,7 +69,9 @@ export type CatalogItem = {
   priceFrom: number;
   gradient: [string, string];
   requiresUpload: boolean;
+  productKind: ProductKind;
   formats: CatalogFormat[];
+  wideFormatOptions: WideFormatOption[];
 };
 
 const bookCoverOptions: CoverOption[] = [
@@ -88,6 +114,8 @@ export const catalogItems: CatalogItem[] = [
     priceFrom: 750,
     gradient: ["oklch(84% 0.05 40)", "oklch(64% 0.07 32)"],
     requiresUpload: true,
+    productKind: "standard",
+    wideFormatOptions: [],
     formats: [
       {
         id: "20x20",
@@ -137,6 +165,8 @@ export const catalogItems: CatalogItem[] = [
     priceFrom: 490,
     gradient: ["oklch(74% 0.08 220)", "oklch(56% 0.09 210)"],
     requiresUpload: true,
+    productKind: "standard",
+    wideFormatOptions: [],
     formats: [
       {
         id: "20x20",
@@ -173,6 +203,8 @@ export const catalogItems: CatalogItem[] = [
     priceFrom: 12000,
     gradient: ["oklch(78% 0.05 300)", "oklch(58% 0.08 300)"],
     requiresUpload: true,
+    productKind: "standard",
+    wideFormatOptions: [],
     formats: [
       {
         id: "standard",

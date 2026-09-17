@@ -1,6 +1,6 @@
 import { pool } from "@/lib/db";
 import type { OrderStatus, ProductionStage, ProductionCard } from "@/lib/orders-shared";
-import { getCatalogItemById } from "@/lib/repo/catalog";
+import { getCatalogItemById, getWideFormatOptionById } from "@/lib/repo/catalog";
 import { finalizeOrderFiles } from "@/lib/order-storage";
 
 // Re-exported so existing callers (`@/lib/repo/orders`) keep working — the
@@ -155,6 +155,121 @@ export async function createOrder(
   }
 }
 
+export type NewWideFormatOrderInput = {
+  clientName: string;
+  clientPhone: string;
+  clientEmail?: string;
+  catalogItemId: string;
+  wideFormatOptionId: string;
+  widthCm: number;
+  heightCm: number;
+  printFileUrl?: string | null;
+};
+
+/** Server-side price recomputation for a wide-format order — the customer
+ * types their own width/height, so (unlike createOrder's client-submitted
+ * price) trusting a client-computed total here would let anyone submit an
+ * arbitrary price. Throws if the option doesn't exist, belongs to a
+ * different catalog item, or the dimensions fall outside its configured
+ * min/max — same validation the order-page configurator does client-side,
+ * enforced again here since that's easy to bypass. */
+export async function computeWideFormatPrice(
+  catalogItemId: string,
+  wideFormatOptionId: string,
+  widthCm: number,
+  heightCm: number,
+): Promise<number> {
+  const option = await getWideFormatOptionById(wideFormatOptionId);
+  if (!option || option.catalogItemId !== catalogItemId) {
+    throw new Error("Тип широкоформатной печати не найден");
+  }
+  if (
+    widthCm < option.minWidthCm ||
+    widthCm > option.maxWidthCm ||
+    heightCm < option.minHeightCm ||
+    heightCm > option.maxHeightCm
+  ) {
+    throw new Error("Размеры выходят за допустимые пределы для этого типа");
+  }
+
+  const areaSqm = (widthCm / 100) * (heightCm / 100);
+  const perimeterM = (2 * (widthCm + heightCm)) / 100;
+  const price =
+    option.pricingMode === "perimeter_area"
+      ? perimeterM * option.pricePerMeter + areaSqm * option.pricePerSqm
+      : areaSqm * option.pricePerSqm;
+  return Math.round(price);
+}
+
+export async function createWideFormatOrder(
+  input: NewWideFormatOrderInput,
+): Promise<{ orderId: string; orderNumber: string }> {
+  const price = await computeWideFormatPrice(
+    input.catalogItemId,
+    input.wideFormatOptionId,
+    input.widthCm,
+    input.heightCm,
+  );
+
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+
+    const existing = await client.query<{ id: string }>(
+      "select id from clients where phone = $1",
+      [input.clientPhone],
+    );
+    let clientId: string;
+    if (existing.rows[0]) {
+      clientId = existing.rows[0].id;
+      await client.query(
+        "update clients set full_name = $1, email = coalesce($2, email) where id = $3",
+        [input.clientName, input.clientEmail ?? null, clientId],
+      );
+    } else {
+      const inserted = await client.query<{ id: string }>(
+        "insert into clients (full_name, phone, email) values ($1, $2, $3) returning id",
+        [input.clientName, input.clientPhone, input.clientEmail ?? null],
+      );
+      clientId = inserted.rows[0].id;
+    }
+
+    const orderNumber = await generateOrderNumber(client);
+
+    const orderRow = await client.query<{ id: string }>(
+      `insert into orders (number, client_id, status, total_amount)
+       values ($1, $2, 'AWAITING_PAYMENT', $3)
+       returning id`,
+      [orderNumber, clientId, price],
+    );
+    const orderId = orderRow.rows[0].id;
+
+    await client.query(
+      `insert into order_items
+         (order_id, catalog_item_id, wide_format_option_id, width_cm, height_cm, print_file_url,
+          spreads, endpapers, packaging, express, price)
+       values ($1, $2, $3, $4, $5, $6, 0, false, false, false, $7)`,
+      [
+        orderId,
+        input.catalogItemId,
+        input.wideFormatOptionId,
+        input.widthCm,
+        input.heightCm,
+        input.printFileUrl ?? null,
+        price,
+      ],
+    );
+
+    await client.query("commit");
+    return { orderId, orderNumber };
+  } catch (err) {
+    await client.query("rollback");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export type OrderListRow = {
   id: string;
   number: string;
@@ -266,17 +381,22 @@ export async function getOrderById(id: string): Promise<OrderDetail | null> {
   const order = rows[0];
 
   const { rows: itemRows } = await pool.query(
-    `select oi.id, ci.title as item_title, cf.name as format_name, co.name as cover_name,
+    `select oi.id, ci.title as item_title,
+            coalesce(cf.name, wfo.name) as format_name,
+            coalesce(co.name, oi.width_cm || '×' || oi.height_cm || ' см') as cover_name,
             oi.spreads, oi.endpapers, oi.packaging, oi.express, oi.price, oi.production_stage,
-            oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
+            oi.cover_combo_photo_url, oi.file_link_url,
+            case when oi.print_file_url is not null then jsonb_build_array(oi.print_file_url)
+                 else oi.spread_photo_urls end as spread_photo_urls,
             oi.cover_photo_urls, oi.common_file_urls,
             cmv.name as variant_name, cmv.material as variant_material,
-            co.variant_kind = 'kombi' as is_kombi,
+            coalesce(co.variant_kind = 'kombi', false) as is_kombi,
             bmv.name as box_material_name, bmv.material as box_material_material
      from order_items oi
      join catalog_items ci on ci.id = oi.catalog_item_id
-     join catalog_formats cf on cf.id = oi.catalog_format_id
-     join cover_options co on co.id = oi.cover_option_id
+     left join catalog_formats cf on cf.id = oi.catalog_format_id
+     left join cover_options co on co.id = oi.cover_option_id
+     left join wide_format_options wfo on wfo.id = oi.wide_format_option_id
      left join cover_material_variants cmv on cmv.id = oi.cover_variant_id
      left join box_material_variants bmv on bmv.id = oi.box_material_id
      where oi.order_id = $1`,
@@ -347,19 +467,24 @@ export async function updateOrderStatus(id: string, status: OrderStatus): Promis
 export async function listProductionItems(): Promise<ProductionCard[]> {
   const { rows } = await pool.query(
     `select oi.id as item_id, o.number as order_number, o.id as order_id,
-            ci.title as item_title, cf.name as format_name, co.name as cover_name,
+            ci.title as item_title,
+            coalesce(cf.name, wfo.name) as format_name,
+            coalesce(co.name, oi.width_cm || '×' || oi.height_cm || ' см') as cover_name,
             oi.spreads, c.full_name as client_name, oi.production_stage,
-            oi.cover_combo_photo_url, oi.file_link_url, oi.spread_photo_urls,
+            oi.cover_combo_photo_url, oi.file_link_url,
+            case when oi.print_file_url is not null then jsonb_build_array(oi.print_file_url)
+                 else oi.spread_photo_urls end as spread_photo_urls,
             oi.cover_photo_urls, oi.common_file_urls,
             cmv.name as variant_name, cmv.material as variant_material,
-            co.variant_kind = 'kombi' as is_kombi,
+            coalesce(co.variant_kind = 'kombi', false) as is_kombi,
             oi.packaging, bmv.name as box_material_name, bmv.material as box_material_material
      from order_items oi
      join orders o on o.id = oi.order_id
      join clients c on c.id = o.client_id
      join catalog_items ci on ci.id = oi.catalog_item_id
-     join catalog_formats cf on cf.id = oi.catalog_format_id
-     join cover_options co on co.id = oi.cover_option_id
+     left join catalog_formats cf on cf.id = oi.catalog_format_id
+     left join cover_options co on co.id = oi.cover_option_id
+     left join wide_format_options wfo on wfo.id = oi.wide_format_option_id
      left join cover_material_variants cmv on cmv.id = oi.cover_variant_id
      left join box_material_variants bmv on bmv.id = oi.box_material_id
      where o.status not in ('CANCELLED')

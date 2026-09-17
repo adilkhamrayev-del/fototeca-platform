@@ -1,6 +1,6 @@
 "use server";
 
-import { createOrder } from "@/lib/repo/orders";
+import { createOrder, createWideFormatOrder } from "@/lib/repo/orders";
 
 export type SubmitOrderInput = {
   clientName: string;
@@ -65,5 +65,46 @@ export async function submitOrder(
   } catch (err) {
     console.error(err);
     return { error: "Не удалось сохранить заказ — попробуйте ещё раз" };
+  }
+}
+
+export type SubmitWideFormatOrderInput = {
+  clientName: string;
+  clientPhone: string;
+  catalogItemId: string;
+  wideFormatOptionId: string;
+  widthCm: number;
+  heightCm: number;
+  printFileUrl?: string | null;
+};
+
+export async function submitWideFormatOrder(
+  input: SubmitWideFormatOrderInput,
+): Promise<{ orderNumber: string } | { error: string }> {
+  if (!input.clientName.trim()) return { error: "Укажите имя" };
+  const phoneDigits = input.clientPhone.replace(/\D/g, "");
+  if (phoneDigits.length < 10) return { error: "Укажите корректный номер телефона" };
+  if (!Number.isFinite(input.widthCm) || !Number.isFinite(input.heightCm)) {
+    return { error: "Укажите размеры" };
+  }
+
+  try {
+    // Price is recomputed server-side from the option's own rates — see
+    // computeWideFormatPrice's own comment for why we never trust a
+    // client-submitted price for a customer-typed size.
+    const { orderNumber } = await createWideFormatOrder({
+      clientName: input.clientName.trim(),
+      clientPhone: phoneDigits,
+      catalogItemId: input.catalogItemId,
+      wideFormatOptionId: input.wideFormatOptionId,
+      widthCm: input.widthCm,
+      heightCm: input.heightCm,
+      printFileUrl: input.printFileUrl ?? null,
+    });
+    return { orderNumber };
+  } catch (err) {
+    console.error(err);
+    const message = err instanceof Error ? err.message : "Не удалось сохранить заказ — попробуйте ещё раз";
+    return { error: message };
   }
 }

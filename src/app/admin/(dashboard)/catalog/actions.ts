@@ -6,14 +6,17 @@ import {
   createCatalogFormat,
   createCatalogItem,
   createCoverOption,
+  createWideFormatOption,
   deleteCatalogFormat,
   deleteCoverOption,
+  deleteWideFormatOption,
   getCatalogItemById,
   updateCatalogFormat,
   updateCatalogItem,
   updateCoverOption,
+  updateWideFormatOption,
 } from "@/lib/repo/catalog";
-import type { CoverVariantKind } from "@/lib/content";
+import type { CoverVariantKind, ProductKind, WideFormatPricingMode } from "@/lib/content";
 
 // Every mutation here can affect prices/availability a customer sees mid
 // order, so each one revalidates the full chain: the admin list/edit pages
@@ -66,6 +69,8 @@ export async function createCatalogItemAction(
   const description = String(formData.get("description") ?? "").trim();
   const priceFrom = Number(formData.get("priceFrom"));
   const requiresUpload = formData.get("requiresUpload") !== "off"; // default on
+  const productKindRaw = String(formData.get("productKind") ?? "standard");
+  const productKind: ProductKind = productKindRaw === "wide_format" ? "wide_format" : "standard";
 
   if (!title) return { error: "Укажите название" };
   if (!Number.isFinite(priceFrom) || priceFrom < 0) return { error: "Некорректная цена" };
@@ -74,7 +79,11 @@ export async function createCatalogItemAction(
     title,
     description: description || title,
     priceFrom,
-    requiresUpload,
+    // Wide-format items have no fixed spreads/upload flow of their own —
+    // their file upload is a single print file handled by
+    // WideFormatConfigurator, not the requires_upload gate on /order/[slug].
+    requiresUpload: productKind === "wide_format" ? false : requiresUpload,
+    productKind,
   });
   await revalidateCatalog(id);
   redirect(`/admin/catalog/${id}`);
@@ -177,6 +186,61 @@ export async function deleteCoverOptionAction(
   } catch (error) {
     if (isForeignKeyViolation(error)) {
       return { error: "Нельзя удалить обложку — она уже используется в заказах." };
+    }
+    throw error;
+  }
+  await revalidateCatalog(catalogItemId);
+  return {};
+}
+
+export async function upsertWideFormatOptionAction(
+  catalogItemId: string,
+  _prevState: RowState,
+  formData: FormData,
+) {
+  const optionId = String(formData.get("optionId") || "");
+  const name = String(formData.get("name") ?? "").trim();
+  const pricingModeRaw = String(formData.get("pricingMode") ?? "area");
+  const pricingMode: WideFormatPricingMode = pricingModeRaw === "perimeter_area" ? "perimeter_area" : "area";
+  const pricePerSqm = parsePositiveInt(formData.get("pricePerSqm"), 0);
+  const pricePerMeter = parsePositiveInt(formData.get("pricePerMeter"), 0);
+  const minWidthCm = parsePositiveInt(formData.get("minWidthCm"), 10);
+  const maxWidthCm = parsePositiveInt(formData.get("maxWidthCm"), 300);
+  const minHeightCm = parsePositiveInt(formData.get("minHeightCm"), 10);
+  const maxHeightCm = parsePositiveInt(formData.get("maxHeightCm"), 300);
+
+  if (!name) return { error: "Укажите название типа" };
+  if (minWidthCm < 1 || maxWidthCm < minWidthCm) return { error: "Проверьте мин./макс. ширину" };
+  if (minHeightCm < 1 || maxHeightCm < minHeightCm) return { error: "Проверьте мин./макс. высоту" };
+
+  const input = {
+    name,
+    pricingMode,
+    pricePerSqm,
+    pricePerMeter,
+    minWidthCm,
+    maxWidthCm,
+    minHeightCm,
+    maxHeightCm,
+  };
+  if (optionId) {
+    await updateWideFormatOption(optionId, input);
+  } else {
+    await createWideFormatOption(catalogItemId, input);
+  }
+  await revalidateCatalog(catalogItemId);
+  return { success: true as const };
+}
+
+export async function deleteWideFormatOptionAction(
+  catalogItemId: string,
+  optionId: string,
+): Promise<{ error?: string }> {
+  try {
+    await deleteWideFormatOption(optionId);
+  } catch (error) {
+    if (isForeignKeyViolation(error)) {
+      return { error: "Нельзя удалить — этот тип уже используется в заказах." };
     }
     throw error;
   }

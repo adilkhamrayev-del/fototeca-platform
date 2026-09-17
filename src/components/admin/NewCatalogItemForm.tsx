@@ -34,6 +34,17 @@ export default function NewCatalogItemForm({ action }: { action: ActionFn }) {
         <input type="checkbox" name="requiresUpload" defaultChecked className="h-4 w-4 accent-accent" />
         Требует загрузки фото
       </label>
+      <label className="flex flex-col gap-1.5 text-sm font-medium">
+        Тип товара
+        <select
+          name="productKind"
+          defaultValue="standard"
+          className="rounded-xl border border-border px-3.5 py-2.5 text-sm outline-none focus:border-accent"
+        >
+          <option value="standard">Стандартный (форматы и обложки)</option>
+          <option value="wide_format">Широкоформатная печать (площадь/периметр)</option>
+        </select>
+      </label>
       <button
         type="submit"
         disabled={pending}

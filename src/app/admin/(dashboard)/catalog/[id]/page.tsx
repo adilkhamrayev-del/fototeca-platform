@@ -1,13 +1,16 @@
 import { notFound } from "next/navigation";
 import CatalogItemForm from "@/components/admin/CatalogItemForm";
 import CatalogFormatsEditor from "@/components/admin/CatalogFormatsEditor";
+import WideFormatOptionsEditor from "@/components/admin/WideFormatOptionsEditor";
 import { getCatalogItemById } from "@/lib/repo/catalog";
 import {
   deleteCatalogFormatAction,
   deleteCoverOptionAction,
+  deleteWideFormatOptionAction,
   updateCatalogItemAction,
   upsertCatalogFormatAction,
   upsertCoverOptionAction,
+  upsertWideFormatOptionAction,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -30,21 +33,37 @@ export default async function EditCatalogItemPage({
 
       <CatalogItemForm item={item} action={boundUpdate} />
 
-      <div>
-        <h2 className="font-heading text-lg font-bold">Форматы, цены и обложки</h2>
-        <p className="mt-1 text-xs text-text-muted">
-          Изменения сразу видны в каталоге и в форме заказа.
-        </p>
-        <div className="mt-4">
-          <CatalogFormatsEditor
-            formats={item.formats}
-            upsertFormatAction={upsertCatalogFormatAction.bind(null, item.id)}
-            deleteFormatAction={deleteCatalogFormatAction.bind(null, item.id)}
-            upsertCoverAction={upsertCoverOptionAction.bind(null, item.id)}
-            deleteCoverAction={deleteCoverOptionAction.bind(null, item.id)}
-          />
+      {item.productKind === "wide_format" ? (
+        <div>
+          <h2 className="font-heading text-lg font-bold">Типы и цены</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            Цена считается по площади и/или периметру, которые вводит клиент на странице заказа.
+          </p>
+          <div className="mt-4">
+            <WideFormatOptionsEditor
+              options={item.wideFormatOptions}
+              upsertAction={upsertWideFormatOptionAction.bind(null, item.id)}
+              deleteAction={deleteWideFormatOptionAction.bind(null, item.id)}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div>
+          <h2 className="font-heading text-lg font-bold">Форматы, цены и обложки</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            Изменения сразу видны в каталоге и в форме заказа.
+          </p>
+          <div className="mt-4">
+            <CatalogFormatsEditor
+              formats={item.formats}
+              upsertFormatAction={upsertCatalogFormatAction.bind(null, item.id)}
+              deleteFormatAction={deleteCatalogFormatAction.bind(null, item.id)}
+              upsertCoverAction={upsertCoverOptionAction.bind(null, item.id)}
+              deleteCoverAction={deleteCoverOptionAction.bind(null, item.id)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

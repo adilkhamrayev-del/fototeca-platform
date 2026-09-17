@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import OrderConfigurator from "@/components/order/OrderConfigurator";
+import WideFormatConfigurator from "@/components/order/WideFormatConfigurator";
 import { getCatalogItemBySlug } from "@/lib/repo/catalog";
 import { listCoverMaterialVariants } from "@/lib/repo/cover-variants";
 import { listBoxMaterialVariants } from "@/lib/repo/box-variants";
@@ -27,19 +28,29 @@ export default async function OrderPage({ params }: PageProps<"/order/[slug]">) 
     // missing/invalid or (edge case) the client row was since deleted.
     sessionPhone ? findClientByPhone(sessionPhone) : Promise.resolve(null),
   ]);
-  if (!item || !item.isActive || !item.requiresUpload || item.formats.length === 0) notFound();
+  if (!item || !item.isActive) notFound();
+  if (item.productKind === "standard" && (!item.requiresUpload || item.formats.length === 0)) {
+    notFound();
+  }
+  if (item.productKind === "wide_format" && item.wideFormatOptions.length === 0) notFound();
+
+  const loggedInClientProp = loggedInClient
+    ? { name: loggedInClient.fullName, phone: loggedInClient.phone }
+    : null;
 
   return (
     <>
       <Header />
-      <OrderConfigurator
-        item={item}
-        coverMaterialVariants={coverMaterialVariants}
-        boxMaterialVariants={boxMaterialVariants}
-        loggedInClient={
-          loggedInClient ? { name: loggedInClient.fullName, phone: loggedInClient.phone } : null
-        }
-      />
+      {item.productKind === "wide_format" ? (
+        <WideFormatConfigurator item={item} loggedInClient={loggedInClientProp} />
+      ) : (
+        <OrderConfigurator
+          item={item}
+          coverMaterialVariants={coverMaterialVariants}
+          boxMaterialVariants={boxMaterialVariants}
+          loggedInClient={loggedInClientProp}
+        />
+      )}
     </>
   );
 }

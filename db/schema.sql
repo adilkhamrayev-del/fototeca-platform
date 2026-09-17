@@ -325,3 +325,63 @@ create table if not exists legacy_orders (
 );
 
 create index if not exists legacy_orders_client_id_idx on legacy_orders(client_id);
+
+-- "Широкоформатная печать" — a fundamentally different catalog item shape:
+-- the customer types their own width/height (cm) rather than picking from a
+-- fixed list of formats, and price is computed from area and/or perimeter
+-- instead of a per-spread rate. product_kind discriminates which admin
+-- editor and which order-page configurator a catalog item renders — see
+-- CatalogFormatsEditor vs WideFormatOptionsEditor, OrderConfigurator vs
+-- WideFormatConfigurator.
+alter table catalog_items add column if not exists product_kind text not null default 'standard';
+
+do $$ begin
+  alter table catalog_items add constraint catalog_items_product_kind_check
+    check (product_kind in ('standard', 'wide_format'));
+exception when duplicate_object then null;
+end $$;
+
+-- One row per selectable type under a 'wide_format' catalog item (e.g.
+-- "Печать холстов" priced by area, "Изготовление картин" priced by
+-- perimeter + area) — admin-configurable rates, no fixed sizes.
+create table if not exists wide_format_options (
+  id uuid primary key default gen_random_uuid(),
+  catalog_item_id uuid not null references catalog_items(id) on delete cascade,
+  name text not null,
+  pricing_mode text not null check (pricing_mode in ('area', 'perimeter_area')),
+  price_per_sqm integer not null default 0,
+  price_per_meter integer not null default 0,
+  min_width_cm integer not null default 10,
+  max_width_cm integer not null default 300,
+  min_height_cm integer not null default 10,
+  max_height_cm integer not null default 300,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+-- A wide-format order_items row has no catalog_format_id/cover_option_id
+-- (there's no fixed format/cover to pick) — made nullable so both "kinds"
+-- of order_items row can share the same table. The check constraint below
+-- enforces exactly one kind per row.
+alter table order_items alter column catalog_format_id drop not null;
+alter table order_items alter column cover_option_id drop not null;
+
+alter table order_items add column if not exists wide_format_option_id uuid references wide_format_options(id);
+alter table order_items add column if not exists width_cm integer;
+alter table order_items add column if not exists height_cm integer;
+-- Customer's single uploaded print file for a wide-format order — see
+-- uploadWideFormatFile in media-storage.ts. Surfaced through the same
+-- spread_photo_urls array everywhere the order is displayed (admin order
+-- page, print blank, production board, /account) rather than adding new
+-- display code for a third file field.
+alter table order_items add column if not exists print_file_url text;
+
+do $$ begin
+  alter table order_items add constraint order_items_kind_check
+    check (
+      (catalog_format_id is not null and cover_option_id is not null and wide_format_option_id is null)
+      or
+      (catalog_format_id is null and wide_format_option_id is not null)
+    );
+exception when duplicate_object then null;
+end $$;

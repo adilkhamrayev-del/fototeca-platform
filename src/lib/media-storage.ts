@@ -203,3 +203,18 @@ export async function uploadOrderCommonFile(
 ): Promise<string> {
   return uploadAdminMedia(buffer, filename, contentType, `${COMMON_FILES_SUBDIR}/${draftId}`);
 }
+
+// Single print file for a "Широкоформатная печать" order (see
+// WideFormatConfigurator.tsx) — one file per order, any type (print-res
+// image, PDF, layered file), same reasoning as common files above.
+export const WIDE_FORMAT_FILE_SUBDIR = "order-wide-format";
+export const MAX_WIDE_FORMAT_FILE_BYTES = 60 * 1024 * 1024; // 60 MB
+
+export async function uploadWideFormatFile(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+  draftId: string,
+): Promise<string> {
+  return uploadAdminMedia(buffer, filename, contentType, `${WIDE_FORMAT_FILE_SUBDIR}/${draftId}`);
+}
