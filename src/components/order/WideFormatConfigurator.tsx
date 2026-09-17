@@ -75,6 +75,7 @@ export default function WideFormatConfigurator({
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   async function handleFile(fileList: FileList | null) {
     const file = fileList?.[0];
@@ -224,17 +225,37 @@ export default function WideFormatConfigurator({
           {item.wideFormatOptions.length > 1 && (
             <div className="rounded-3xl border border-border bg-surface p-6">
               <h3 className="mb-3 text-sm font-bold">Тип</h3>
-              <div className="flex gap-2 rounded-2xl border border-border bg-surface-2 p-1.5">
+              <div className="grid grid-cols-2 gap-2">
                 {item.wideFormatOptions.map((o) => (
                   <button
                     key={o.id}
                     type="button"
                     onClick={() => selectOption(o.id)}
-                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold ${
-                      o.id === option.id ? "bg-white shadow-sm" : "text-text-muted"
+                    className={`flex flex-col items-center gap-1.5 overflow-hidden rounded-xl border-2 p-1.5 transition ${
+                      o.id === option.id
+                        ? "border-accent shadow-[0_0_0_3px_var(--color-accent-soft)]"
+                        : "border-transparent bg-surface-2"
                     }`}
                   >
-                    {o.name}
+                    {o.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={o.imageUrl}
+                        alt={o.name}
+                        className="h-16 w-full rounded-lg object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-16 w-full items-center justify-center rounded-lg bg-surface text-[10px] text-text-muted">
+                        Нет фото
+                      </span>
+                    )}
+                    <span
+                      className={`text-xs font-semibold ${
+                        o.id === option.id ? "text-accent-ink" : "text-text-muted"
+                      }`}
+                    >
+                      {o.name}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -285,13 +306,30 @@ export default function WideFormatConfigurator({
               Загрузите готовый макет — любой формат (JPG, PDF, TIFF, PSD). Можно оформить заказ и
               прислать файл позже.
             </p>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="self-start rounded-xl border-2 border-dashed border-border px-4 py-2.5 text-xs font-semibold text-text-muted"
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                void handleFile(e.dataTransfer.files);
+              }}
+              className={`flex flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                dragOver ? "border-accent bg-accent-soft" : "border-border"
+              }`}
             >
-              {fileEntry ? "Заменить файл" : "Выбрать файл"}
-            </button>
+              <p className="text-xs text-text-muted">Перетащите файл сюда</p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-xl border border-border bg-surface px-4 py-2 text-xs font-semibold text-text-muted"
+              >
+                {fileEntry ? "Заменить файл" : "Выбрать файл"}
+              </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"

@@ -39,6 +39,7 @@ type WideFormatOptionRow = {
   max_width_cm: number;
   min_height_cm: number;
   max_height_cm: number;
+  image_url: string | null;
 };
 
 type FormatRow = {
@@ -121,7 +122,7 @@ async function assemble(itemRows: ItemRow[]): Promise<CatalogItemRecord[]> {
 
   const { rows: wideFormatRows } = await pool.query<WideFormatOptionRow>(
     `select id, catalog_item_id, name, pricing_mode, price_per_sqm, price_per_meter,
-            min_width_cm, max_width_cm, min_height_cm, max_height_cm
+            min_width_cm, max_width_cm, min_height_cm, max_height_cm, image_url
      from wide_format_options where catalog_item_id = any($1) order by sort_order, name`,
     [itemIds],
   );
@@ -138,6 +139,7 @@ async function assemble(itemRows: ItemRow[]): Promise<CatalogItemRecord[]> {
       maxWidthCm: o.max_width_cm,
       minHeightCm: o.min_height_cm,
       maxHeightCm: o.max_height_cm,
+      imageUrl: o.image_url,
     });
     wideFormatOptionsByItem.set(o.catalog_item_id, list);
   }
@@ -372,6 +374,7 @@ type WideFormatOptionInput = {
   maxWidthCm: number;
   minHeightCm: number;
   maxHeightCm: number;
+  imageUrl?: string | null;
 };
 
 export async function createWideFormatOption(
@@ -381,8 +384,8 @@ export async function createWideFormatOption(
   await pool.query(
     `insert into wide_format_options
        (catalog_item_id, name, pricing_mode, price_per_sqm, price_per_meter,
-        min_width_cm, max_width_cm, min_height_cm, max_height_cm)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        min_width_cm, max_width_cm, min_height_cm, max_height_cm, image_url)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [
       catalogItemId,
       input.name,
@@ -393,6 +396,7 @@ export async function createWideFormatOption(
       input.maxWidthCm,
       input.minHeightCm,
       input.maxHeightCm,
+      input.imageUrl ?? null,
     ],
   );
 }
@@ -401,8 +405,9 @@ export async function updateWideFormatOption(id: string, input: WideFormatOption
   await pool.query(
     `update wide_format_options
        set name = $1, pricing_mode = $2, price_per_sqm = $3, price_per_meter = $4,
-           min_width_cm = $5, max_width_cm = $6, min_height_cm = $7, max_height_cm = $8
-     where id = $9`,
+           min_width_cm = $5, max_width_cm = $6, min_height_cm = $7, max_height_cm = $8,
+           image_url = $9
+     where id = $10`,
     [
       input.name,
       input.pricingMode,
@@ -412,6 +417,7 @@ export async function updateWideFormatOption(id: string, input: WideFormatOption
       input.maxWidthCm,
       input.minHeightCm,
       input.maxHeightCm,
+      input.imageUrl ?? null,
       id,
     ],
   );

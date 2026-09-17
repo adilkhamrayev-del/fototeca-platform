@@ -53,6 +53,9 @@ export type WideFormatOption = {
   maxWidthCm: number;
   minHeightCm: number;
   maxHeightCm: number;
+  // Real preview photo, shown on the order page's type picker once an
+  // admin uploads one — same idea as CoverOption.imageUrl.
+  imageUrl?: string | null;
 };
 
 // 'standard' — the usual formats/covers model (fotokniga, vypusknye-albomy).

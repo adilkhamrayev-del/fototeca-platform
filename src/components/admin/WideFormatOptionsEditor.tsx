@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { WideFormatOption, WideFormatPricingMode } from "@/lib/content";
+import PhotoUploadField from "./PhotoUploadField";
 
 type RowState = { error?: string; success?: true } | undefined;
 type UpsertFn = (state: RowState, formData: FormData) => Promise<RowState>;
@@ -130,6 +131,7 @@ function OptionRow({
   deleteAction: DeleteFn;
 }) {
   const [state, formAction, pending] = useActionState(upsertAction, undefined);
+  const [imageUrl, setImageUrl] = useState<string | null>(option.imageUrl ?? null);
 
   return (
     <form
@@ -137,6 +139,16 @@ function OptionRow({
       className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface-2 p-4"
     >
       <input type="hidden" name="optionId" value={option.id} />
+      <input type="hidden" name="imageUrl" value={imageUrl ?? ""} />
+      <div className="flex flex-col gap-1 text-xs text-text-muted">
+        Фото
+        <PhotoUploadField
+          imageUrl={imageUrl}
+          onChange={setImageUrl}
+          endpoint="/api/admin/wide-format-media"
+          alt={option.name}
+        />
+      </div>
       <label className="flex flex-col gap-1 text-xs text-text-muted">
         Название
         <input
@@ -184,12 +196,23 @@ function DeleteButton({
 
 function NewOptionRow({ upsertAction }: { upsertAction: UpsertFn }) {
   const [state, formAction, pending] = useActionState(upsertAction, undefined);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   return (
     <form
       action={formAction}
       className="flex flex-wrap items-end gap-3 rounded-2xl border-2 border-dashed border-border p-4"
     >
+      <input type="hidden" name="imageUrl" value={imageUrl ?? ""} />
+      <div className="flex flex-col gap-1 text-xs text-text-muted">
+        Фото
+        <PhotoUploadField
+          imageUrl={imageUrl}
+          onChange={setImageUrl}
+          endpoint="/api/admin/wide-format-media"
+          alt="Новый тип"
+        />
+      </div>
       <label className="flex flex-col gap-1 text-xs text-text-muted">
         Название
         <input name="name" required placeholder="Новый тип" className={`${inputClass} w-48`} />

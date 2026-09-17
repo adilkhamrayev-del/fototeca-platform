@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import type { CoverMaterialVariant, MaterialKind } from "@/lib/repo/cover-variants";
+import PhotoUploadField from "./PhotoUploadField";
 
 type RowState = { error?: string; success?: true } | undefined;
 type UpsertFn = (
@@ -85,81 +86,6 @@ function MaterialSection({
   );
 }
 
-function PhotoUpload({
-  imageUrl,
-  onChange,
-}: {
-  imageUrl: string | null;
-  onChange: (url: string | null) => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  async function uploadFile(file: File) {
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const body = new FormData();
-      body.set("file", file);
-      const res = await fetch("/api/admin/cover-media", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setUploadError(data.error ?? "Не удалось загрузить файл.");
-        return;
-      }
-      onChange(data.url);
-    } catch {
-      setUploadError("Не удалось загрузить файл — проверьте соединение.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (file) void uploadFile(file);
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      {imageUrl ? (
-        <div className="relative h-9 w-9 overflow-hidden rounded-lg border border-border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt="Превью варианта" className="h-full w-full object-cover" />
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] font-semibold text-white opacity-0 hover:opacity-100"
-          >
-            Убрать
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="h-9 w-9 shrink-0 rounded-lg border-2 border-dashed border-border text-[10px] font-medium text-text-muted disabled:opacity-50"
-          title="Загрузить фото варианта"
-        >
-          {uploading ? "…" : "Фото"}
-        </button>
-      )}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        onChange={handleFileChange}
-        disabled={uploading}
-        className="hidden"
-      />
-      {uploadError && <span className="text-[11px] font-medium text-red-600">{uploadError}</span>}
-    </div>
-  );
-}
-
 function VariantRow({
   variant,
   material,
@@ -181,7 +107,7 @@ function VariantRow({
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="variantId" value={variant.id} />
       <input type="hidden" name="imageUrl" value={imageUrl ?? ""} />
-      <PhotoUpload imageUrl={imageUrl} onChange={setImageUrl} />
+      <PhotoUploadField imageUrl={imageUrl} onChange={setImageUrl} endpoint="/api/admin/cover-media" alt="Превью варианта" />
       <input
         name="name"
         defaultValue={variant.name}
@@ -228,7 +154,7 @@ function NewVariantRow({
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2 pt-1">
       <input type="hidden" name="imageUrl" value={imageUrl ?? ""} />
-      <PhotoUpload imageUrl={imageUrl} onChange={setImageUrl} />
+      <PhotoUploadField imageUrl={imageUrl} onChange={setImageUrl} endpoint="/api/admin/cover-media" alt="Превью варианта" />
       <input name="name" required placeholder="Новый вариант" className={`${inputClass} w-48`} />
       <button
         type="submit"

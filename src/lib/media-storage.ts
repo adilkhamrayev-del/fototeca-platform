@@ -159,6 +159,19 @@ export async function uploadCatalogItemImage(
   return uploadAdminMedia(buffer, filename, contentType, CATALOG_ITEM_MEDIA_SUBDIR);
 }
 
+// A wide-format option's own preview photo (e.g. a sample canvas print) —
+// same idea as uploadCoverImage, shown on the order page's type picker.
+export const WIDE_FORMAT_OPTION_MEDIA_SUBDIR = "wide-format-options";
+export const MAX_WIDE_FORMAT_OPTION_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+export async function uploadWideFormatOptionImage(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+): Promise<string> {
+  return uploadAdminMedia(buffer, filename, contentType, WIDE_FORMAT_OPTION_MEDIA_SUBDIR);
+}
+
 // Same idea again, for a customer's own combo-cover photo — public route,
 // no admin session, see /api/order/combo-cover-photo.
 // Same idea again, for a box-lining swatch photo — see BOX_MEDIA_SUBDIR.

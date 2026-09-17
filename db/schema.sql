@@ -359,6 +359,11 @@ create table if not exists wide_format_options (
   created_at timestamptz not null default now()
 );
 
+-- Real preview photo for this type (e.g. a sample canvas print), same idea
+-- as cover_options.image_url — shown on the order page's type picker once
+-- an admin uploads one.
+alter table wide_format_options add column if not exists image_url text;
+
 -- A wide-format order_items row has no catalog_format_id/cover_option_id
 -- (there's no fixed format/cover to pick) — made nullable so both "kinds"
 -- of order_items row can share the same table. The check constraint below

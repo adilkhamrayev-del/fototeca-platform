@@ -1132,6 +1132,7 @@ function ComboPhotoUpload({
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function uploadFile(file: File) {
@@ -1165,26 +1166,54 @@ function ComboPhotoUpload({
       <p className="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">
         Ваше фото для комби
       </p>
-      {photoUrl ? (
-        <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-border">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photoUrl} alt="Ваше фото для комби" className="h-full w-full object-cover" />
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) void uploadFile(file);
+        }}
+      >
+        {photoUrl ? (
+          <div
+            className={`relative h-20 w-20 overflow-hidden rounded-xl border-2 ${dragOver ? "border-accent" : "border-border"}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoUrl} alt="Ваше фото для комби" className="h-full w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] font-semibold text-white opacity-0 hover:opacity-100"
+              title="Заменить фото — можно перетащить новое сюда"
+            >
+              Заменить
+            </button>
+          </div>
+        ) : (
           <button
             type="button"
-            onClick={() => onChange(null)}
-            className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] font-semibold text-white opacity-0 hover:opacity-100"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className={`rounded-xl border-2 border-dashed px-4 py-2.5 text-xs font-semibold disabled:opacity-50 ${
+              dragOver ? "border-accent bg-accent-soft text-accent-ink" : "border-border text-text-muted"
+            }`}
           >
-            Убрать
+            {uploading ? "Загрузка…" : "Загрузить фото — или перетащите сюда"}
           </button>
-        </div>
-      ) : (
+        )}
+      </div>
+      {photoUrl && (
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="rounded-xl border-2 border-dashed border-border px-4 py-2.5 text-xs font-semibold text-text-muted disabled:opacity-50"
+          onClick={() => onChange(null)}
+          className="mt-1.5 text-[11px] font-semibold text-text-muted underline"
         >
-          {uploading ? "Загрузка…" : "Загрузить фото"}
+          Убрать
         </button>
       )}
       <input
@@ -1222,17 +1251,35 @@ function SimpleUploadBlock({
   accept?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   return (
     <div className="flex flex-col gap-2.5 rounded-3xl border border-border bg-surface p-6">
       <h3 className="text-sm font-bold">{title}</h3>
       <p className="text-xs text-text-muted">{hint}</p>
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="self-start rounded-xl border-2 border-dashed border-border px-4 py-2.5 text-xs font-semibold text-text-muted"
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          onSelect(e.dataTransfer.files);
+        }}
+        className={`flex flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-4 text-center transition-colors ${
+          dragOver ? "border-accent bg-accent-soft" : "border-border"
+        }`}
       >
-        Выбрать файлы
-      </button>
+        <p className="text-[11px] text-text-muted">Перетащите файлы сюда</p>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="self-center rounded-xl border border-border bg-surface-2 px-4 py-2 text-xs font-semibold text-text-muted"
+        >
+          Выбрать файлы
+        </button>
+      </div>
       <input
         ref={inputRef}
         type="file"

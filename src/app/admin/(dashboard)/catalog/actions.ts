@@ -210,6 +210,8 @@ export async function upsertWideFormatOptionAction(
   const maxWidthCm = parsePositiveInt(formData.get("maxWidthCm"), 300);
   const minHeightCm = parsePositiveInt(formData.get("minHeightCm"), 10);
   const maxHeightCm = parsePositiveInt(formData.get("maxHeightCm"), 300);
+  const imageUrlRaw = String(formData.get("imageUrl") ?? "").trim();
+  const imageUrl = imageUrlRaw ? imageUrlRaw : null;
 
   if (!name) return { error: "Укажите название типа" };
   if (minWidthCm < 1 || maxWidthCm < minWidthCm) return { error: "Проверьте мин./макс. ширину" };
@@ -224,6 +226,7 @@ export async function upsertWideFormatOptionAction(
     maxWidthCm,
     minHeightCm,
     maxHeightCm,
+    imageUrl,
   };
   if (optionId) {
     await updateWideFormatOption(optionId, input);
