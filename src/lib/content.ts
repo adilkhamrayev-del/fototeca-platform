@@ -68,6 +68,10 @@ export type CatalogItem = {
   description: string;
   priceFrom: number;
   gradient: [string, string];
+  // Real card photo, shown instead of the gradient once an admin uploads
+  // one (see /admin/catalog/[id] and CatalogGrid.tsx) — same idea as
+  // CoverOption.imageUrl, at the catalog-item level instead of per-cover.
+  coverImageUrl?: string | null;
   requiresUpload: boolean;
   productKind: ProductKind;
   formats: CatalogFormat[];

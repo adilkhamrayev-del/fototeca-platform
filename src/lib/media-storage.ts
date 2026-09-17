@@ -144,6 +144,21 @@ export async function uploadCoverImage(
   return uploadAdminMedia(buffer, filename, contentType, COVER_MEDIA_SUBDIR);
 }
 
+// A catalog item's own card photo (shown on the homepage/catalog grid
+// instead of the plain gradient — see catalog_items.cover_image_url in
+// db/schema.sql, unused until now). Separate subfolder from cover options'
+// own photos (COVER_MEDIA_SUBDIR), which are a different, per-format thing.
+export const CATALOG_ITEM_MEDIA_SUBDIR = "catalog-items";
+export const MAX_CATALOG_ITEM_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+export async function uploadCatalogItemImage(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
+): Promise<string> {
+  return uploadAdminMedia(buffer, filename, contentType, CATALOG_ITEM_MEDIA_SUBDIR);
+}
+
 // Same idea again, for a customer's own combo-cover photo — public route,
 // no admin session, see /api/order/combo-cover-photo.
 // Same idea again, for a box-lining swatch photo — see BOX_MEDIA_SUBDIR.

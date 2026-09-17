@@ -51,11 +51,13 @@ export async function updateCatalogItemAction(
   const description = String(formData.get("description") ?? "");
   const priceFrom = Number(formData.get("priceFrom"));
   const isActive = formData.get("isActive") === "on";
+  const imageUrlRaw = String(formData.get("imageUrl") ?? "").trim();
+  const coverImageUrl = imageUrlRaw ? imageUrlRaw : null;
 
   if (!title.trim()) return { error: "Укажите название" };
   if (!Number.isFinite(priceFrom) || priceFrom < 0) return { error: "Некорректная цена" };
 
-  await updateCatalogItem(id, { title, description, priceFrom, isActive });
+  await updateCatalogItem(id, { title, description, priceFrom, isActive, coverImageUrl });
   await revalidateCatalog(id);
 
   return { success: true };

@@ -22,6 +22,7 @@ type ItemRow = {
   price_from: number;
   gradient_from: string;
   gradient_to: string;
+  cover_image_url: string | null;
   requires_upload: boolean;
   is_active: boolean;
   product_kind: ProductKind;
@@ -148,6 +149,7 @@ async function assemble(itemRows: ItemRow[]): Promise<CatalogItemRecord[]> {
     description: row.description,
     priceFrom: row.price_from,
     gradient: [row.gradient_from, row.gradient_to],
+    coverImageUrl: row.cover_image_url,
     requiresUpload: row.requires_upload,
     isActive: row.is_active,
     productKind: row.product_kind,
@@ -157,8 +159,8 @@ async function assemble(itemRows: ItemRow[]): Promise<CatalogItemRecord[]> {
 }
 
 const SELECT_ITEMS = `
-  select id, slug, title, description, price_from, gradient_from, gradient_to, requires_upload,
-         is_active, product_kind
+  select id, slug, title, description, price_from, gradient_from, gradient_to, cover_image_url,
+         requires_upload, is_active, product_kind
   from catalog_items
 `;
 
@@ -184,13 +186,26 @@ export async function getCatalogItemById(id: string): Promise<CatalogItemRecord 
 
 export async function updateCatalogItem(
   id: string,
-  input: { title: string; description: string; priceFrom: number; isActive: boolean },
+  input: {
+    title: string;
+    description: string;
+    priceFrom: number;
+    isActive: boolean;
+    coverImageUrl?: string | null;
+  },
 ): Promise<void> {
   await pool.query(
     `update catalog_items set title = $1, description = $2, price_from = $3, is_active = $4,
-       updated_at = now()
-     where id = $5`,
-    [input.title, input.description, input.priceFrom, input.isActive, id],
+       cover_image_url = $5, updated_at = now()
+     where id = $6`,
+    [
+      input.title,
+      input.description,
+      input.priceFrom,
+      input.isActive,
+      input.coverImageUrl ?? null,
+      id,
+    ],
   );
 }
 

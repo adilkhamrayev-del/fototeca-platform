@@ -22,12 +22,17 @@ export default function CatalogGrid({
             href={`/order/${item.slug}`}
             className="flex flex-col overflow-hidden rounded-3xl border border-border transition-shadow hover:shadow-lg"
           >
-            <div
-              className="h-40"
-              style={{
-                background: `linear-gradient(150deg, ${item.gradient[0]}, ${item.gradient[1]})`,
-              }}
-            />
+            {item.coverImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.coverImageUrl} alt={item.title} className="h-40 w-full object-cover" />
+            ) : (
+              <div
+                className="h-40"
+                style={{
+                  background: `linear-gradient(150deg, ${item.gradient[0]}, ${item.gradient[1]})`,
+                }}
+              />
+            )}
             <div className="flex flex-1 flex-col gap-2 p-6">
               <h3 className="font-heading text-base font-semibold">{item.title}</h3>
               <p className="text-sm text-text-muted">{item.description}</p>
