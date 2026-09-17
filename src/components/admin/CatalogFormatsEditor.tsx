@@ -13,7 +13,6 @@ const VARIANT_KIND_LABELS: Record<CoverVariantKind, string> = {
 
 type RowState = { error?: string; success?: true } | undefined;
 type UpsertFormatFn = (state: RowState, formData: FormData) => Promise<RowState>;
-type UpsertCoverFn = (state: RowState, formData: FormData) => Promise<RowState>;
 type DeleteFn = (id: string) => Promise<{ error?: string }>;
 
 const inputClass =
@@ -46,12 +45,14 @@ export default function CatalogFormatsEditor({
   deleteFormatAction,
   upsertCoverAction,
   deleteCoverAction,
+  copyCoverOptionsAction,
 }: {
   formats: CatalogFormat[];
   upsertFormatAction: UpsertFormatFn;
   deleteFormatAction: DeleteFn;
   upsertCoverAction: (formatId: string, state: RowState, formData: FormData) => Promise<RowState>;
   deleteCoverAction: DeleteFn;
+  copyCoverOptionsAction: (targetFormatId: string, sourceFormatId: string) => Promise<{ error?: string }>;
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -59,10 +60,12 @@ export default function CatalogFormatsEditor({
         <FormatCard
           key={format.id}
           format={format}
+          otherFormats={formats.filter((f) => f.id !== format.id)}
           upsertFormatAction={upsertFormatAction}
           deleteFormatAction={deleteFormatAction}
           upsertCoverAction={upsertCoverAction}
           deleteCoverAction={deleteCoverAction}
+          copyCoverOptionsAction={copyCoverOptionsAction}
         />
       ))}
       <NewFormatCard upsertFormatAction={upsertFormatAction} />
@@ -70,18 +73,75 @@ export default function CatalogFormatsEditor({
   );
 }
 
+function CopyCoversControl({
+  formatId,
+  otherFormats,
+  copyCoverOptionsAction,
+}: {
+  formatId: string;
+  otherFormats: CatalogFormat[];
+  copyCoverOptionsAction: (targetFormatId: string, sourceFormatId: string) => Promise<{ error?: string }>;
+}) {
+  const candidates = otherFormats.filter((f) => f.coverOptions.length > 0);
+  const [sourceId, setSourceId] = useState(candidates[0]?.id ?? "");
+  const [copying, startCopy] = useTransition();
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [copyDone, setCopyDone] = useState(false);
+
+  if (candidates.length === 0) return null;
+
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border bg-surface p-2.5">
+      <span className="text-xs text-text-muted">Скопировать обложки из формата:</span>
+      <select
+        value={sourceId}
+        onChange={(e) => setSourceId(e.target.value)}
+        className={`${inputClass} w-48`}
+      >
+        {candidates.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name} ({f.coverOptions.length})
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={copying || !sourceId}
+        onClick={() => {
+          setCopyError(null);
+          setCopyDone(false);
+          startCopy(async () => {
+            const result = await copyCoverOptionsAction(formatId, sourceId);
+            if (result.error) setCopyError(result.error);
+            else setCopyDone(true);
+          });
+        }}
+        className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold text-accent-ink disabled:opacity-50"
+      >
+        {copying ? "Копирование…" : "Скопировать"}
+      </button>
+      {copyDone && <span className="text-xs font-medium text-ok">Скопировано</span>}
+      {copyError && <span className="text-xs font-medium text-red-600">{copyError}</span>}
+    </div>
+  );
+}
+
 function FormatCard({
   format,
+  otherFormats,
   upsertFormatAction,
   deleteFormatAction,
   upsertCoverAction,
   deleteCoverAction,
+  copyCoverOptionsAction,
 }: {
   format: CatalogFormat;
+  otherFormats: CatalogFormat[];
   upsertFormatAction: UpsertFormatFn;
   deleteFormatAction: DeleteFn;
   upsertCoverAction: (formatId: string, state: RowState, formData: FormData) => Promise<RowState>;
   deleteCoverAction: DeleteFn;
+  copyCoverOptionsAction: (targetFormatId: string, sourceFormatId: string) => Promise<{ error?: string }>;
 }) {
   const [state, formAction, pending] = useActionState(upsertFormatAction, undefined);
   const [deleting, startDelete] = useTransition();
@@ -199,6 +259,11 @@ function FormatCard({
         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">
           Обложки этого формата
         </p>
+        <CopyCoversControl
+          formatId={format.id}
+          otherFormats={otherFormats}
+          copyCoverOptionsAction={copyCoverOptionsAction}
+        />
         <div className="flex flex-col gap-2">
           {format.coverOptions.map((cover) => (
             <CoverRow

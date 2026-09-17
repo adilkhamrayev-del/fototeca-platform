@@ -4,6 +4,7 @@ import CatalogFormatsEditor from "@/components/admin/CatalogFormatsEditor";
 import WideFormatOptionsEditor from "@/components/admin/WideFormatOptionsEditor";
 import { getCatalogItemById } from "@/lib/repo/catalog";
 import {
+  copyCoverOptionsAction,
   deleteCatalogFormatAction,
   deleteCoverOptionAction,
   deleteWideFormatOptionAction,
@@ -60,6 +61,7 @@ export default async function EditCatalogItemPage({
               deleteFormatAction={deleteCatalogFormatAction.bind(null, item.id)}
               upsertCoverAction={upsertCoverOptionAction.bind(null, item.id)}
               deleteCoverAction={deleteCoverOptionAction.bind(null, item.id)}
+              copyCoverOptionsAction={copyCoverOptionsAction.bind(null, item.id)}
             />
           </div>
         </div>

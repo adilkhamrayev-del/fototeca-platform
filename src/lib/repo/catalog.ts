@@ -365,6 +365,23 @@ export async function deleteCoverOption(id: string): Promise<void> {
   await pool.query("delete from cover_options where id = $1", [id]);
 }
 
+/** Copies every cover option from one format to another, in one insert —
+ * for when an admin adds a new format to an existing catalog item and
+ * wants the same set of covers (Хит2/Тканевая/Экокожа/Комби, with their
+ * photos and price modifiers) instead of re-typing each one by hand. Adds
+ * to whatever covers the target format already has rather than replacing
+ * them, so it's safe to use more than once (e.g. after adding one more
+ * cover to the source format). No-op if the source format has no covers. */
+export async function copyCoverOptions(sourceFormatId: string, targetFormatId: string): Promise<void> {
+  await pool.query(
+    `insert into cover_options
+       (catalog_format_id, name, price_modifier, gradient_from, gradient_to, image_url, variant_kind, sort_order)
+     select $2, name, price_modifier, gradient_from, gradient_to, image_url, variant_kind, sort_order
+     from cover_options where catalog_format_id = $1`,
+    [sourceFormatId, targetFormatId],
+  );
+}
+
 type WideFormatOptionInput = {
   name: string;
   pricingMode: WideFormatPricingMode;

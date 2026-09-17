@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  copyCoverOptions,
   createCatalogFormat,
   createCatalogItem,
   createCoverOption,
@@ -191,6 +192,17 @@ export async function deleteCoverOptionAction(
     }
     throw error;
   }
+  await revalidateCatalog(catalogItemId);
+  return {};
+}
+
+export async function copyCoverOptionsAction(
+  catalogItemId: string,
+  targetFormatId: string,
+  sourceFormatId: string,
+): Promise<{ error?: string }> {
+  if (!sourceFormatId) return { error: "Выберите формат-источник" };
+  await copyCoverOptions(sourceFormatId, targetFormatId);
   await revalidateCatalog(catalogItemId);
   return {};
 }
